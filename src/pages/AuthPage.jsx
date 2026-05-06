@@ -49,7 +49,7 @@ export default function AuthPage() {
         </svg>
       </div>
 
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-gold-500/40 to-transparent" />
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-coral-500/40 to-transparent" />
 
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md animate-slide-up">
@@ -57,10 +57,10 @@ export default function AuthPage() {
             <div className="flex justify-center mb-6">
               <Logo size="xl" />
             </div>
-            <p className="font-accent italic text-gold-500/80 text-lg">
+            <p className="font-accent italic text-coral-500/80 text-lg">
               {mode === 'signin' ? 'Welcome back' : 'Welcome aboard'}
             </p>
-            <div className="gold-divider w-32 mx-auto mt-3" />
+            <div className="coral-divider w-32 mx-auto mt-3" />
           </div>
 
           <div className="card-warm ornamental-border">
@@ -71,8 +71,8 @@ export default function AuthPage() {
                 className={cn(
                   'flex-1 py-2.5 rounded-lg font-medium transition-all duration-300',
                   mode === 'signin'
-                    ? 'bg-gradient-lacquer text-ivory-50 shadow-lacquer'
-                    : 'text-ivory-100/60 hover:text-ivory-100'
+                    ? 'bg-gradient-teal text-cream-50 shadow-teal'
+                    : 'text-cream-100/60 hover:text-cream-100'
                 )}
               >
                 Sign In
@@ -83,8 +83,8 @@ export default function AuthPage() {
                 className={cn(
                   'flex-1 py-2.5 rounded-lg font-medium transition-all duration-300',
                   mode === 'signup'
-                    ? 'bg-gradient-lacquer text-ivory-50 shadow-lacquer'
-                    : 'text-ivory-100/60 hover:text-ivory-100'
+                    ? 'bg-gradient-teal text-cream-50 shadow-teal'
+                    : 'text-cream-100/60 hover:text-cream-100'
                 )}
               >
                 Sign Up
@@ -94,9 +94,9 @@ export default function AuthPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === 'signup' && (
                 <div className="animate-fade-in">
-                  <label className="block text-sm font-medium text-ivory-100/80 mb-2">Full Name</label>
+                  <label className="block text-sm font-medium text-cream-100/80 mb-2">Full Name</label>
                   <div className="relative">
-                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gold-500/60" />
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
                     <input
                       type="text"
                       value={fullName}
@@ -110,9 +110,9 @@ export default function AuthPage() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-ivory-100/80 mb-2">Email</label>
+                <label className="block text-sm font-medium text-cream-100/80 mb-2">Email</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gold-500/60" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
                   <input
                     type="email"
                     value={email}
@@ -125,9 +125,9 @@ export default function AuthPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-ivory-100/80 mb-2">Password</label>
+                <label className="block text-sm font-medium text-cream-100/80 mb-2">Password</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gold-500/60" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
                   <input
                     type="password"
                     value={password}
@@ -141,13 +141,13 @@ export default function AuthPage() {
               </div>
 
               {error && (
-                <div className="p-3 bg-lacquer-900/40 border border-lacquer-700/40 rounded-lg text-sm text-lacquer-200 animate-fade-in">
+                <div className="p-3 bg-teal-900/40 border border-teal-700/40 rounded-lg text-sm text-teal-200 animate-fade-in">
                   {error}
                 </div>
               )}
 
               {success && (
-                <div className="p-3 bg-jade-700/20 border border-jade-500/40 rounded-lg text-sm text-jade-50 animate-fade-in">
+                <div className="p-3 bg-sage-700/20 border border-sage-500/40 rounded-lg text-sm text-sage-50 animate-fade-in">
                   {success}
                 </div>
               )}
@@ -169,7 +169,7 @@ export default function AuthPage() {
             </form>
           </div>
 
-          <p className="text-center text-xs text-ivory-100/40 mt-8 font-accent italic">
+          <p className="text-center text-xs text-cream-100/40 mt-8 font-accent italic">
             "A journey of a thousand miles begins with a single step" — Lao Tzu
           </p>
         </div>

@@ -424,7 +424,7 @@ function VideoThumbnail({ src, className }) {
         preload="metadata"
       />
       <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
-        <div className="w-8 h-8 rounded-full bg-gold-500/90 flex items-center justify-center shadow-lg">
+        <div className="w-8 h-8 rounded-full bg-coral-500/90 flex items-center justify-center shadow-lg">
           <Play className="w-4 h-4 text-ink-900 ml-0.5" fill="currentColor" />
         </div>
       </div>
@@ -439,10 +439,10 @@ function ClusterMarker({ cluster }) {
   return (
     <div className="relative cursor-pointer group">
       {/* Stack effect - shadow cards behind */}
-      <div className="absolute top-1.5 left-1.5 w-12 h-12 rounded-full border-2 border-gold-500/60 bg-ink-800" />
-      <div className="absolute top-0.5 left-0.5 w-12 h-12 rounded-full border-2 border-gold-500/80 bg-ink-800" />
+      <div className="absolute top-1.5 left-1.5 w-12 h-12 rounded-full border-2 border-coral-500/60 bg-ink-800" />
+      <div className="absolute top-0.5 left-0.5 w-12 h-12 rounded-full border-2 border-coral-500/80 bg-ink-800" />
       {/* Main image */}
-      <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-gold-500 shadow-gold group-hover:scale-110 transition-transform">
+      <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-coral-500 shadow-coral group-hover:scale-110 transition-transform">
         {cover.media_type === 'photo' ? (
           <img src={cover.media_url} alt="" className="w-full h-full object-cover" />
         ) : (
@@ -450,10 +450,10 @@ function ClusterMarker({ cluster }) {
         )}
       </div>
       {/* Counter badge */}
-      <div className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-lacquer-800 border-2 border-gold-500 text-gold-50 text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg">
+      <div className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-teal-800 border-2 border-coral-500 text-coral-50 text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg">
         {count}
       </div>
-      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gold-500 rotate-45" />
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-coral-500 rotate-45" />
     </div>
   );
 }
@@ -462,14 +462,14 @@ function ClusterMarker({ cluster }) {
 function SingleMarker({ memory }) {
   return (
     <div className="relative group cursor-pointer">
-      <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-gold-500 shadow-gold hover:scale-110 transition-transform">
+      <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-coral-500 shadow-coral hover:scale-110 transition-transform">
         {memory.media_type === 'photo' ? (
           <img src={memory.media_url} alt="" className="w-full h-full object-cover" />
         ) : (
           <VideoThumbnail src={memory.media_url} className="w-full h-full" />
         )}
       </div>
-      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gold-500 rotate-45" />
+      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-coral-500 rotate-45" />
     </div>
   );
 }
@@ -762,7 +762,7 @@ function PolaroidCard({
               onKeyDown={handleKeyDown}
               placeholder="Write a note..."
               rows={3}
-              className="w-full text-sm font-accent text-ink-900 bg-gray-50 border border-gray-300 rounded p-1.5 resize-none focus:outline-none focus:border-gold-600"
+              className="w-full text-sm font-accent text-ink-900 bg-gray-50 border border-gray-300 rounded p-1.5 resize-none focus:outline-none focus:border-coral-600"
             />
             <div className="flex items-center gap-1.5 mt-1">
               <button
@@ -1000,7 +1000,7 @@ function LocationPickerToolbar({
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => results.length > 0 && setShowResults(true)}
             placeholder="Search address or place..."
-            className="w-full text-sm text-ink-900 bg-gray-50 border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-gold-600"
+            className="w-full text-sm text-ink-900 bg-gray-50 border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-coral-600"
           />
           {showResults && (results.length > 0 || searching) && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-30 max-h-[200px] overflow-y-auto">
@@ -1119,17 +1119,17 @@ function AlbumOverlay({
 
   return (
     <div className="fixed inset-0 z-[55] bg-ink-900 flex flex-col animate-fade-in">
-      <div className="sticky top-0 z-10 bg-ink-900/95 backdrop-blur-md border-b border-lacquer-900/30 px-3 py-3 flex items-center gap-2 safe-area-inset-top">
+      <div className="sticky top-0 z-10 bg-ink-900/95 backdrop-blur-md border-b border-teal-900/30 px-3 py-3 flex items-center gap-2 safe-area-inset-top">
         <button
           onClick={onClose}
-          className="p-2 text-ivory-100/80 hover:text-ivory-50 rounded-lg hover:bg-ink-800/60"
+          className="p-2 text-cream-100/80 hover:text-cream-50 rounded-lg hover:bg-ink-800/60"
           aria-label="Close album"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div className="flex-1 text-center">
-          <h2 className="font-display text-lg font-bold text-ivory-50">All memories</h2>
-          <p className="text-xs text-ivory-100/60">
+          <h2 className="font-display text-lg font-bold text-cream-50">All memories</h2>
+          <p className="text-xs text-cream-100/60">
             {total} {total === 1 ? 'memory' : 'memories'}
           </p>
         </div>
@@ -1138,13 +1138,13 @@ function AlbumOverlay({
 
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
         {total === 0 && (
-          <p className="text-center text-ivory-100/60 mt-8">No memories yet.</p>
+          <p className="text-center text-cream-100/60 mt-8">No memories yet.</p>
         )}
         {groups.map((group) => (
           <section key={group.key}>
-            <h3 className="font-display text-sm font-semibold text-gold-500 mb-2">
+            <h3 className="font-display text-sm font-semibold text-coral-500 mb-2">
               {group.date ? formatDate(group.date) : 'Unknown date'}{' '}
-              <span className="text-ivory-100/40 font-normal">
+              <span className="text-cream-100/40 font-normal">
                 — {group.memories.length}{' '}
                 {group.memories.length === 1 ? 'memory' : 'memories'}
               </span>
@@ -1156,7 +1156,7 @@ function AlbumOverlay({
                   <button
                     key={m.id}
                     onClick={() => setFocusedIdx(idx)}
-                    className="aspect-square rounded-xl overflow-hidden border border-lacquer-900/40 hover:border-gold-500/60 transition-all"
+                    className="aspect-square rounded-xl overflow-hidden border border-teal-900/40 hover:border-coral-500/60 transition-all"
                   >
                     {m.media_type === 'photo' ? (
                       <img
@@ -1690,15 +1690,15 @@ export default function MemoriesMapTab({ trip }) {
   if (!MAPBOX_TOKEN) {
     return (
       <div className="card-warm text-center py-8">
-        <MapPin className="w-12 h-12 text-gold-500/40 mx-auto mb-3" />
-        <p className="text-ivory-100/70">Mapbox token is required to view the map</p>
+        <MapPin className="w-12 h-12 text-coral-500/40 mx-auto mb-3" />
+        <p className="text-cream-100/70">Mapbox token is required to view the map</p>
       </div>
     );
   }
 
   return (
     <div className="animate-fade-in">
-      <div className="relative rounded-2xl overflow-hidden border border-lacquer-900/40 ornamental-border h-[500px]">
+      <div className="relative rounded-2xl overflow-hidden border border-teal-900/40 ornamental-border h-[500px]">
         <MapGL
           ref={mapRef}
           mapboxAccessToken={MAPBOX_TOKEN}
@@ -1741,10 +1741,10 @@ export default function MemoriesMapTab({ trip }) {
               }
             >
               <div className="relative cursor-grab active:cursor-grabbing">
-                <div className="w-10 h-10 rounded-full border-4 border-gold-500 bg-lacquer-700 shadow-gold flex items-center justify-center">
-                  <MapPin className="w-5 h-5 text-gold-50" fill="currentColor" />
+                <div className="w-10 h-10 rounded-full border-4 border-coral-500 bg-teal-700 shadow-coral flex items-center justify-center">
+                  <MapPin className="w-5 h-5 text-coral-50" fill="currentColor" />
                 </div>
-                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gold-500 rotate-45" />
+                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-coral-500 rotate-45" />
               </div>
             </Marker>
           )}
@@ -1837,7 +1837,7 @@ export default function MemoriesMapTab({ trip }) {
         <button
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading || !!locationPicker}
-          className="absolute bottom-4 right-4 z-10 btn-gold flex items-center gap-2 shadow-2xl"
+          className="absolute bottom-4 right-4 z-10 btn-coral flex items-center gap-2 shadow-2xl"
         >
           {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
           <span>Add Memory</span>
@@ -1853,8 +1853,8 @@ export default function MemoriesMapTab({ trip }) {
       </div>
 
       <div className="mt-4 flex items-center justify-between text-sm">
-        <p className="text-ivory-100/60">
-          <span className="text-gold-500 font-bold">{memories.length}</span>{' '}
+        <p className="text-cream-100/60">
+          <span className="text-coral-500 font-bold">{memories.length}</span>{' '}
           {memories.length === 1 ? 'memory' : 'memories'} on the map
         </p>
       </div>
@@ -1868,20 +1868,20 @@ export default function MemoriesMapTab({ trip }) {
               setLocationPicker(null);
               setAlbumOpen(true);
             }}
-            className="w-full card-warm flex items-center justify-between gap-3 py-4 px-5 hover:border-gold-500/40 transition-all"
+            className="w-full card-warm flex items-center justify-between gap-3 py-4 px-5 hover:border-coral-500/40 transition-all"
           >
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gold-500/15 border border-gold-500/40 flex items-center justify-center">
-                <Images className="w-5 h-5 text-gold-500" />
+              <div className="w-10 h-10 rounded-full bg-coral-500/15 border border-coral-500/40 flex items-center justify-center">
+                <Images className="w-5 h-5 text-coral-500" />
               </div>
               <div className="text-left">
-                <p className="font-display text-base font-semibold text-ivory-50">All memories</p>
-                <p className="text-xs text-ivory-100/60">
+                <p className="font-display text-base font-semibold text-cream-50">All memories</p>
+                <p className="text-xs text-cream-100/60">
                   {memories.length} {memories.length === 1 ? 'memory' : 'memories'} from this trip
                 </p>
               </div>
             </div>
-            <ChevronRight className="w-5 h-5 text-gold-500/70" />
+            <ChevronRight className="w-5 h-5 text-coral-500/70" />
           </button>
         </section>
       )}
@@ -1983,7 +1983,7 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
                 <button
                   type="button"
                   onClick={onUseTripCountryCenter}
-                  className="w-full py-2 px-3 bg-gold-500/20 hover:bg-gold-500/30 border border-gold-500/40 rounded-lg text-xs text-gold-100 flex items-center justify-center gap-2"
+                  className="w-full py-2 px-3 bg-coral-500/20 hover:bg-coral-500/30 border border-coral-500/40 rounded-lg text-xs text-coral-100 flex items-center justify-center gap-2"
                 >
                   <MapPin className="w-3.5 h-3.5" />
                   <span>Use {tripCountry} center instead</span>
@@ -1992,7 +1992,7 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
                   type="button"
                   onClick={handleUseCurrentLocation}
                   disabled={gettingLocation}
-                  className="w-full py-2 px-3 bg-jade-500/20 hover:bg-jade-500/30 border border-jade-500/40 rounded-lg text-xs text-jade-100 flex items-center justify-center gap-2"
+                  className="w-full py-2 px-3 bg-sage-500/20 hover:bg-sage-500/30 border border-sage-500/40 rounded-lg text-xs text-sage-100 flex items-center justify-center gap-2"
                 >
                   {gettingLocation ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5" />}
                   <span>{gettingLocation ? 'Getting location...' : 'Use my current location'}</span>
@@ -2000,12 +2000,12 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
               </div>
             </div>
           ) : (
-            <div className="p-3 bg-jade-700/20 border border-jade-500/40 rounded-lg text-xs text-jade-50 flex items-start gap-2">
+            <div className="p-3 bg-sage-700/20 border border-sage-500/40 rounded-lg text-xs text-sage-50 flex items-start gap-2">
               <Check className="w-4 h-4 shrink-0 mt-0.5" />
               <div>
                 <p className="font-semibold">{data.detectedPlace || 'Location set'}</p>
                 {data.detectedCountry && (
-                  <p className="text-jade-50/80 mt-0.5">{data.detectedCountry}</p>
+                  <p className="text-sage-50/80 mt-0.5">{data.detectedCountry}</p>
                 )}
               </div>
             </div>
@@ -2015,7 +2015,7 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
             <button
               type="button"
               onClick={onPickOnMap}
-              className="w-full py-2 px-3 bg-gold-500/15 hover:bg-gold-500/25 border border-gold-500/40 rounded-lg text-xs text-gold-100 flex items-center justify-center gap-2"
+              className="w-full py-2 px-3 bg-coral-500/15 hover:bg-coral-500/25 border border-coral-500/40 rounded-lg text-xs text-coral-100 flex items-center justify-center gap-2"
             >
               <MapPin className="w-3.5 h-3.5" />
               <span>Pick exact location on map</span>
@@ -2023,7 +2023,7 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
           )}
 
           <div>
-            <label className="block text-sm font-medium text-ivory-100/80 mb-2">Caption</label>
+            <label className="block text-sm font-medium text-cream-100/80 mb-2">Caption</label>
             <textarea
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
@@ -2034,7 +2034,7 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-ivory-100/80 mb-2">Place Name (Optional)</label>
+            <label className="block text-sm font-medium text-cream-100/80 mb-2">Place Name (Optional)</label>
             <input
               type="text"
               value={locationName}
@@ -2045,12 +2045,12 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
           </div>
 
           <details className="text-xs">
-            <summary className="cursor-pointer text-ivory-100/60 hover:text-ivory-100/80">
+            <summary className="cursor-pointer text-cream-100/60 hover:text-cream-100/80">
               Advanced: Manual coordinates
             </summary>
             <div className="grid grid-cols-2 gap-2 mt-2">
               <div>
-                <label className="block text-xs text-ivory-100/60 mb-1">Latitude</label>
+                <label className="block text-xs text-cream-100/60 mb-1">Latitude</label>
                 <input
                   type="number"
                   step="any"
@@ -2060,7 +2060,7 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
                 />
               </div>
               <div>
-                <label className="block text-xs text-ivory-100/60 mb-1">Longitude</label>
+                <label className="block text-xs text-cream-100/60 mb-1">Longitude</label>
                 <input
                   type="number"
                   step="any"

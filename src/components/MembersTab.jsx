@@ -47,7 +47,7 @@ export default function MembersTab({ trip }) {
     <div className="animate-fade-in space-y-4">
       <div className="card-warm ornamental-border">
         <h2 className="font-display text-lg font-bold mb-1">Trip Travelers</h2>
-        <p className="text-xs text-gold-500/70 font-accent italic">
+        <p className="text-xs text-coral-500/70 font-accent italic">
           Everyone with access sees everything in real time
         </p>
       </div>
@@ -73,7 +73,7 @@ export default function MembersTab({ trip }) {
       {isOwner && (
         <button
           onClick={() => setShowInvite(true)}
-          className="w-full py-3 border border-dashed border-gold-500/30 rounded-xl text-gold-500/80 hover:border-gold-500/60 hover:bg-gold-500/5 transition-all flex items-center justify-center gap-2 text-sm"
+          className="w-full py-3 border border-dashed border-coral-500/30 rounded-xl text-coral-500/80 hover:border-coral-500/60 hover:bg-coral-500/5 transition-all flex items-center justify-center gap-2 text-sm"
         >
           <UserPlus className="w-4 h-4" />
           <span>Invite Traveler</span>
@@ -100,7 +100,7 @@ function MemberCard({ member, isOwner, currentUserId, onRemove }) {
 
   return (
     <div className="card-warm flex items-center gap-3 group">
-      <div className="w-12 h-12 rounded-full bg-gradient-lacquer flex items-center justify-center font-display font-bold text-ivory-50 shrink-0 border border-gold-500/30">
+      <div className="w-12 h-12 rounded-full bg-gradient-teal flex items-center justify-center font-display font-bold text-cream-50 shrink-0 border border-coral-500/30">
         {profile.avatar_url ? (
           <img src={profile.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
         ) : (
@@ -109,20 +109,20 @@ function MemberCard({ member, isOwner, currentUserId, onRemove }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="font-medium text-ivory-50 truncate">
+          <h3 className="font-medium text-cream-50 truncate">
             {profile.full_name || profile.email}
-            {isCurrentUser && <span className="text-xs text-gold-500/70 ml-1">(you)</span>}
+            {isCurrentUser && <span className="text-xs text-coral-500/70 ml-1">(you)</span>}
           </h3>
           {isOwnerRole && (
-            <Crown className="w-4 h-4 text-gold-500" aria-label="Owner" />
+            <Crown className="w-4 h-4 text-coral-500" aria-label="Owner" />
           )}
         </div>
-        <p className="text-xs text-ivory-100/50 truncate">{profile.email}</p>
+        <p className="text-xs text-cream-100/50 truncate">{profile.email}</p>
       </div>
       {isOwner && !isOwnerRole && (
         <button
           onClick={() => onRemove(member.id)}
-          className="opacity-0 group-hover:opacity-100 p-2 text-lacquer-400 hover:bg-lacquer-900/40 rounded-lg transition-all"
+          className="opacity-0 group-hover:opacity-100 p-2 text-teal-400 hover:bg-teal-900/40 rounded-lg transition-all"
           aria-label="Remove"
         >
           <Trash2 className="w-4 h-4" />
@@ -189,17 +189,17 @@ function InviteModal({ trip, existingEmails, onClose }) {
           </button>
         </div>
 
-        <p className="text-sm text-ivory-100/70 mb-4 leading-relaxed">
+        <p className="text-sm text-cream-100/70 mb-4 leading-relaxed">
           Add a traveler to your trip. They'll see everything in real time.
           <br />
-          <span className="text-xs text-gold-500/70">
+          <span className="text-xs text-coral-500/70">
             ⚠️ They need to sign up to the app first
           </span>
         </p>
 
         <form onSubmit={handleInvite} className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-ivory-100/80 mb-2">Email</label>
+            <label className="block text-sm font-medium text-cream-100/80 mb-2">Email</label>
             <input
               type="email"
               value={email}
@@ -212,12 +212,12 @@ function InviteModal({ trip, existingEmails, onClose }) {
           </div>
 
           {error && (
-            <div className="p-3 bg-lacquer-900/40 border border-lacquer-700/40 rounded-lg text-sm text-lacquer-200">
+            <div className="p-3 bg-teal-900/40 border border-teal-700/40 rounded-lg text-sm text-teal-200">
               {error}
             </div>
           )}
           {success && (
-            <div className="p-3 bg-jade-700/20 border border-jade-500/40 rounded-lg text-sm text-jade-50">
+            <div className="p-3 bg-sage-700/20 border border-sage-500/40 rounded-lg text-sm text-sage-50">
               {success}
             </div>
           )}

@@ -62,7 +62,7 @@ export default function CurrencyTab({ trip }) {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="font-display text-xl font-bold">Currency Converter</h2>
-            <p className="text-xs text-gold-500/70 font-accent italic mt-1">
+            <p className="text-xs text-coral-500/70 font-accent italic mt-1">
               Live exchange rates
             </p>
           </div>
@@ -77,7 +77,7 @@ export default function CurrencyTab({ trip }) {
         </div>
 
         <div className="mb-3">
-          <label className="block text-xs text-ivory-100/60 mb-1.5">From</label>
+          <label className="block text-xs text-cream-100/60 mb-1.5">From</label>
           <div className="flex gap-2">
             <select
               value={from}
@@ -102,7 +102,7 @@ export default function CurrencyTab({ trip }) {
         <div className="flex justify-center -my-1">
           <button
             onClick={swap}
-            className="w-10 h-10 rounded-full bg-gradient-gold text-ink-900 shadow-gold hover:scale-110 active:scale-95 transition-transform flex items-center justify-center"
+            className="w-10 h-10 rounded-full bg-gradient-coral text-ink-900 shadow-coral hover:scale-110 active:scale-95 transition-transform flex items-center justify-center"
             aria-label="Swap"
           >
             <ArrowLeftRight className="w-5 h-5" />
@@ -110,7 +110,7 @@ export default function CurrencyTab({ trip }) {
         </div>
 
         <div className="mt-3">
-          <label className="block text-xs text-ivory-100/60 mb-1.5">To</label>
+          <label className="block text-xs text-cream-100/60 mb-1.5">To</label>
           <div className="flex gap-2">
             <select
               value={to}
@@ -125,9 +125,9 @@ export default function CurrencyTab({ trip }) {
             </select>
             <div className="input-field flex-1 text-2xl font-mono py-2.5 flex items-center">
               {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin text-gold-500" />
+                <Loader2 className="w-5 h-5 animate-spin text-coral-500" />
               ) : (
-                <span className="text-gold-500">
+                <span className="text-coral-500">
                   {result.toLocaleString('en-US', { maximumFractionDigits: result < 100 ? 2 : 0 })}
                 </span>
               )}
@@ -136,8 +136,8 @@ export default function CurrencyTab({ trip }) {
         </div>
 
         {rates && !loading && (
-          <div className="mt-4 pt-4 border-t border-lacquer-900/30 flex items-center gap-2 text-xs text-ivory-100/60">
-            <TrendingUp className="w-4 h-4 text-gold-500/60" />
+          <div className="mt-4 pt-4 border-t border-teal-900/30 flex items-center gap-2 text-xs text-cream-100/60">
+            <TrendingUp className="w-4 h-4 text-coral-500/60" />
             <span className="font-mono">
               1 {to} = {reverseRate.toLocaleString('en-US', { maximumFractionDigits: 4 })} {from}
             </span>
@@ -145,7 +145,7 @@ export default function CurrencyTab({ trip }) {
         )}
 
         {error && (
-          <div className="mt-4 p-3 bg-lacquer-900/40 border border-lacquer-700/40 rounded-lg text-xs text-lacquer-200">
+          <div className="mt-4 p-3 bg-teal-900/40 border border-teal-700/40 rounded-lg text-xs text-teal-200">
             {error}
           </div>
         )}
@@ -153,18 +153,18 @@ export default function CurrencyTab({ trip }) {
 
       {from === 'VND' && (
         <div className="card-warm">
-          <h3 className="font-display font-semibold mb-3 text-gold-500">Common Amounts</h3>
+          <h3 className="font-display font-semibold mb-3 text-coral-500">Common Amounts</h3>
           <div className="grid grid-cols-2 gap-2">
             {QUICK_AMOUNTS.map((amt) => (
               <button
                 key={amt}
                 onClick={() => setAmount(String(amt))}
-                className="p-3 bg-ink-900/40 hover:bg-ink-800 border border-lacquer-900/30 hover:border-gold-500/30 rounded-xl transition-all text-left"
+                className="p-3 bg-ink-900/40 hover:bg-ink-800 border border-teal-900/30 hover:border-coral-500/30 rounded-xl transition-all text-left"
               >
-                <div className="text-sm font-mono text-ivory-100">
+                <div className="text-sm font-mono text-cream-100">
                   ₫ {amt.toLocaleString()}
                 </div>
-                <div className="text-xs text-gold-500 font-mono mt-0.5">
+                <div className="text-xs text-coral-500 font-mono mt-0.5">
                   ≈ ${convert(amt, 'VND', 'USD').toFixed(2)}
                 </div>
               </button>
@@ -173,9 +173,9 @@ export default function CurrencyTab({ trip }) {
         </div>
       )}
 
-      <div className="card-warm bg-gradient-to-br from-gold-500/5 to-transparent">
-        <h3 className="font-display font-semibold mb-2 text-gold-500">💡 Local Tip</h3>
-        <p className="text-sm text-ivory-100/80 leading-relaxed">
+      <div className="card-warm bg-gradient-to-br from-coral-500/5 to-transparent">
+        <h3 className="font-display font-semibold mb-2 text-coral-500">💡 Local Tip</h3>
+        <p className="text-sm text-cream-100/80 leading-relaxed">
           In Vietnam, dong banknotes are easy to confuse: 100,000 ₫ ≈ $4 USD. When someone says "100K", they mean 100,000 dong.
           Always ask to see the price written down before agreeing.
         </p>

@@ -4,30 +4,46 @@ export default {
   theme: {
     extend: {
       colors: {
-        lacquer: {
-          50: '#fef2f2', 100: '#fde2e2', 200: '#fbc8c8', 300: '#f7a3a3',
-          400: '#f07171', 500: '#e64545', 600: '#c92626', 700: '#a51d1d',
-          800: '#8B0000', 900: '#6b0202', 950: '#3d0101',
+        // Wanderlust 2026 palette
+        teal: {
+          50: '#f0fdfa', 100: '#ccfbf1', 200: '#99f6e4', 300: '#5eead4',
+          400: '#2dd4bf', 500: '#14b8a6', 600: '#0d9488', 700: '#0f766e',
+          800: '#115e59', 900: '#134e4a', 950: '#042f2e',
         },
-        gold: {
-          50: '#fefce8', 100: '#fdf6c7', 200: '#fceb89', 300: '#fad94a',
-          400: '#f7c41e', 500: '#D4AF37', 600: '#b8941f', 700: '#92701b',
-          800: '#78591d', 900: '#664a1d',
+        coral: {
+          50: '#fff7ed', 100: '#ffedd5', 200: '#fed7aa', 300: '#fdba74',
+          400: '#fb923c', 500: '#f97316', 600: '#ea580c', 700: '#c2410c',
+          800: '#9a3412', 900: '#7c2d12',
         },
-        jade: { 50: '#f0fdf4', 500: '#10b981', 700: '#047857' },
-        ivory: { 50: '#fefdf8', 100: '#fdf9ec', 200: '#f9f0d3' },
-        ink: { 900: '#1a0a0a', 800: '#2a1515', 700: '#3d2020' },
+        sage: {
+          50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1',
+          400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155',
+          800: '#1e293b', 900: '#0f172a',
+        },
+        cream: {
+          50: '#fffbf0', 100: '#fef7e0', 200: '#fdf0c7', 300: '#fbe5a3',
+        },
+        // Surface tones — cool turquoise-tinted layers for body/cards/borders.
+        // Lower number = lighter. Body sits ABOVE 50 (lighter cards) but cards
+        // are 50 because they're the lightest visible surface.
+        surface: {
+          50: '#fbfdfc',   // card bg (lightest)
+          100: '#e8f1ee',  // body bg
+          200: '#cfe1db',  // borders / dividers
+          300: '#b2c4be',  // muted decorative
+        },
+        ink: { 900: '#1a0a0a', 800: '#2a1515', 700: '#3d2020', 600: '#5a3030' },
       },
       fontFamily: {
-        display: ['"Playfair Display"', 'Georgia', 'serif'],
+        display: ['"Poppins"', 'system-ui', 'sans-serif'],
         body: ['"Inter"', 'system-ui', 'sans-serif'],
         accent: ['"Cormorant Garamond"', 'Georgia', 'serif'],
         mono: ['"JetBrains Mono"', 'monospace'],
       },
       backgroundImage: {
-        'gradient-lacquer': 'linear-gradient(135deg, #8B0000 0%, #6b0202 50%, #3d0101 100%)',
-        'gradient-gold': 'linear-gradient(135deg, #D4AF37 0%, #b8941f 100%)',
-        'gradient-sunset': 'linear-gradient(135deg, #8B0000 0%, #c92626 50%, #D4AF37 100%)',
+        'gradient-teal': 'linear-gradient(135deg, #14b8a6 0%, #0d9488 50%, #0f766e 100%)',
+        'gradient-coral': 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)',
+        'gradient-sunset': 'linear-gradient(135deg, #ccfbf1 0%, #fffbf0 50%, #fed7aa 100%)',
       },
       animation: {
         'fade-in': 'fadeIn 0.4s ease-out',
@@ -43,8 +59,8 @@ export default {
         shimmer: { '0%, 100%': { opacity: '1' }, '50%': { opacity: '0.6' } },
       },
       boxShadow: {
-        'lacquer': '0 4px 20px -4px rgba(139, 0, 0, 0.4)',
-        'gold': '0 4px 20px -4px rgba(212, 175, 55, 0.5)',
+        'teal': '0 4px 20px -4px rgba(20, 184, 166, 0.4)',
+        'coral': '0 4px 20px -4px rgba(249, 115, 22, 0.5)',
       },
     },
   },
