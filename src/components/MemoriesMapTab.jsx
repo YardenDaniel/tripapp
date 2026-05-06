@@ -109,6 +109,45 @@ async function reverseGeocode(lat, lng) {
   }
 }
 
+// Searches Mapbox for matches to `query`. Returns up to 5 suggestions.
+// `opts.signal` (AbortSignal), `opts.proximity` ({lat, lng}), `opts.country` (ISO 2-letter), `opts.sessionToken`.
+async function forwardGeocode(query, opts = {}) {
+  if (!MAPBOX_TOKEN || !query || !query.trim()) return [];
+  try {
+    const params = new URLSearchParams({
+      access_token: MAPBOX_TOKEN,
+      limit: '5',
+      language: 'en',
+    });
+    if (opts.sessionToken) params.set('session_token', opts.sessionToken);
+    if (opts.proximity) params.set('proximity', `${opts.proximity.lng},${opts.proximity.lat}`);
+    if (opts.country) params.set('country', opts.country);
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?${params}`;
+    const response = await fetch(url, { signal: opts.signal });
+    if (!response.ok) return [];
+    const data = await response.json();
+    return (data.features || [])
+      .filter((f) => Array.isArray(f.center) && f.center.length === 2)
+      .map((f) => ({
+        id: f.id,
+        placeName: f.place_name,
+        coords: { lng: f.center[0], lat: f.center[1] },
+      }));
+  } catch (err) {
+    if (err.name !== 'AbortError') console.warn('Forward geocode failed:', err);
+    return [];
+  }
+}
+
+const TRIP_COUNTRY_ISO = {
+  Vietnam: 'vn', Thailand: 'th', Japan: 'jp', Italy: 'it',
+  Greece: 'gr', Portugal: 'pt', Israel: 'il', Egypt: 'eg',
+};
+function tripCountryISO(name) {
+  if (!name) return undefined;
+  return TRIP_COUNTRY_ISO[name];
+}
+
 // Distance between two coords in meters (Haversine)
 function distanceMeters(c1, c2) {
   const R = 6371000;
@@ -173,6 +212,203 @@ function calculateBounds(memories) {
     if (m.coords.lng > maxLng) maxLng = m.coords.lng;
   });
   return { minLat, maxLat, minLng, maxLng };
+}
+
+// Reads an MP4 box header at `pos`. Returns null if header is incomplete or invalid.
+function readMP4BoxHeader(view, pos, end) {
+  if (pos + 8 > end) return null;
+  let size = view.getUint32(pos);
+  let headerSize = 8;
+  if (size === 1) {
+    // 64-bit size lives in the next 8 bytes.
+    if (pos + 16 > end) return null;
+    const high = view.getUint32(pos + 8);
+    const low = view.getUint32(pos + 12);
+    size = high * 4294967296 + low;
+    headerSize = 16;
+  } else if (size === 0) {
+    size = end - pos;
+  }
+  if (size < headerSize) return null;
+  const type = String.fromCharCode(
+    view.getUint8(pos + 4),
+    view.getUint8(pos + 5),
+    view.getUint8(pos + 6),
+    view.getUint8(pos + 7),
+  );
+  return { type, size, payloadStart: pos + headerSize, payloadEnd: pos + size };
+}
+
+function findMP4Box(view, start, end, targetType) {
+  let pos = start;
+  while (pos < end) {
+    const box = readMP4BoxHeader(view, pos, end);
+    if (!box || box.size <= 0) return null;
+    if (box.type === targetType) return box;
+    pos += box.size;
+  }
+  return null;
+}
+
+// Parses an ISO 6709 location string like "+34.0522-118.2437/" or "+34.0522-118.2437+010.500/".
+function parseISO6709(str) {
+  const match = str.match(/^([+-]\d+(?:\.\d+)?)([+-]\d+(?:\.\d+)?)/);
+  if (!match) return null;
+  const lat = parseFloat(match[1]);
+  const lng = parseFloat(match[2]);
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+  return { lat, lng };
+}
+
+// Lists the type of every direct child of a box, for debugging.
+function listChildTypes(view, parent) {
+  const types = [];
+  let pos = parent.payloadStart;
+  while (pos < parent.payloadEnd) {
+    const box = readMP4BoxHeader(view, pos, parent.payloadEnd);
+    if (!box || box.size <= 0) break;
+    types.push(box.type);
+    pos += box.size;
+  }
+  return types;
+}
+
+// Reads GPS from the legacy "©xyz" atom inside a parent box (typically moov > udta).
+function findXyzLocation(view, buffer, parent) {
+  const xyzType = String.fromCharCode(0xa9) + 'xyz';
+  const xyz = findMP4Box(view, parent.payloadStart, parent.payloadEnd, xyzType);
+  if (!xyz || xyz.payloadEnd - xyz.payloadStart < 4) return null;
+  const strLen = view.getUint16(xyz.payloadStart);
+  const strStart = xyz.payloadStart + 4;
+  if (strStart + strLen > xyz.payloadEnd) return null;
+  const isoStr = new TextDecoder('utf-8').decode(buffer.slice(strStart, strStart + strLen));
+  return parseISO6709(isoStr);
+}
+
+// Reads GPS from the newer "meta > keys + ilst" structure (iPhone iOS 10+).
+function findKeysIlstLocation(view, buffer, parent) {
+  const meta = findMP4Box(view, parent.payloadStart, parent.payloadEnd, 'meta');
+  if (!meta) return null;
+
+  // QuickTime "meta" has a 4-byte version+flags prefix; ISO-MP4 "meta" does not.
+  // Try both: child boxes start at payloadStart or payloadStart + 4.
+  for (const skipFlags of [0, 4]) {
+    const start = meta.payloadStart + skipFlags;
+    if (start + 8 > meta.payloadEnd) continue;
+    const keys = findMP4Box(view, start, meta.payloadEnd, 'keys');
+    const ilst = findMP4Box(view, start, meta.payloadEnd, 'ilst');
+    if (!keys || !ilst) continue;
+
+    // Parse the keys list (4 bytes version+flags, 4 bytes entry_count, then entries).
+    if (keys.payloadEnd - keys.payloadStart < 8) continue;
+    const keyList = [];
+    let kpos = keys.payloadStart + 8;
+    while (kpos + 8 <= keys.payloadEnd) {
+      const ksize = view.getUint32(kpos);
+      if (ksize < 8 || kpos + ksize > keys.payloadEnd) break;
+      const keyValue = new TextDecoder('utf-8').decode(buffer.slice(kpos + 8, kpos + ksize));
+      keyList.push(keyValue);
+      kpos += ksize;
+    }
+
+    const locKeyIdx = keyList.findIndex((v) => v.includes('location.ISO6709'));
+    if (locKeyIdx < 0) continue;
+    const targetIdx = locKeyIdx + 1; // ilst keys are 1-based
+
+    let ipos = ilst.payloadStart;
+    while (ipos + 8 <= ilst.payloadEnd) {
+      const isize = view.getUint32(ipos);
+      if (isize < 8 || ipos + isize > ilst.payloadEnd) break;
+      const idx = view.getUint32(ipos + 4);
+      if (idx === targetIdx) {
+        const data = findMP4Box(view, ipos + 8, ipos + isize, 'data');
+        if (data && data.payloadEnd - data.payloadStart >= 8) {
+          // data box: 4 bytes type_indicator + 4 bytes locale + value
+          const valueStart = data.payloadStart + 8;
+          const valueLen = data.payloadEnd - valueStart;
+          if (valueLen > 0) {
+            const isoStr = new TextDecoder('utf-8').decode(
+              buffer.slice(valueStart, valueStart + valueLen),
+            );
+            const coords = parseISO6709(isoStr);
+            if (coords) return coords;
+          }
+        }
+      }
+      ipos += isize;
+    }
+  }
+  return null;
+}
+
+// Extracts GPS and creation time from an MP4/MOV file (iPhone, Android, GoPro, etc.).
+// Returns { coords?: {lat, lng}, takenAt?: ISO string } or null.
+async function extractVideoMetadata(file) {
+  try {
+    const buffer = await file.arrayBuffer();
+    const view = new DataView(buffer);
+
+    const moov = findMP4Box(view, 0, buffer.byteLength, 'moov');
+    if (!moov) {
+      console.warn('[video meta] moov box not found in file');
+      return null;
+    }
+    console.log('[video meta] moov children:', listChildTypes(view, moov));
+
+    const result = {};
+
+    // Try every known location for the GPS string, in order of likelihood.
+    let coords = findXyzLocation(view, buffer, moov);
+    let source = '';
+    if (coords) source = 'moov > ©xyz';
+
+    if (!coords) {
+      const udta = findMP4Box(view, moov.payloadStart, moov.payloadEnd, 'udta');
+      if (udta) {
+        coords = findXyzLocation(view, buffer, udta);
+        if (coords) source = 'moov > udta > ©xyz';
+        if (!coords) {
+          coords = findKeysIlstLocation(view, buffer, udta);
+          if (coords) source = 'moov > udta > meta > keys/ilst';
+        }
+      }
+    }
+    if (!coords) {
+      coords = findKeysIlstLocation(view, buffer, moov);
+      if (coords) source = 'moov > meta > keys/ilst';
+    }
+
+    if (coords) {
+      console.log('[video meta] GPS found via', source, coords);
+      result.coords = coords;
+    } else {
+      console.warn('[video meta] no GPS data found in this video');
+    }
+
+    // Creation time via mvhd. Stored as seconds since 1904-01-01 UTC.
+    const mvhd = findMP4Box(view, moov.payloadStart, moov.payloadEnd, 'mvhd');
+    if (mvhd && mvhd.payloadEnd - mvhd.payloadStart >= 16) {
+      const version = view.getUint8(mvhd.payloadStart);
+      let creationTime;
+      if (version === 1 && mvhd.payloadEnd - mvhd.payloadStart >= 20) {
+        const high = view.getUint32(mvhd.payloadStart + 4);
+        const low = view.getUint32(mvhd.payloadStart + 8);
+        creationTime = high * 4294967296 + low;
+      } else {
+        creationTime = view.getUint32(mvhd.payloadStart + 4);
+      }
+      // Convert from 1904-epoch to Unix-epoch (diff = 2,082,844,800 seconds).
+      const unixSeconds = creationTime - 2082844800;
+      if (unixSeconds > 0) {
+        result.takenAt = new Date(unixSeconds * 1000).toISOString();
+      }
+    }
+
+    return Object.keys(result).length > 0 ? result : null;
+  } catch (e) {
+    console.warn('[video meta] parser error:', e);
+    return null;
+  }
 }
 
 function VideoThumbnail({ src, className }) {
@@ -259,6 +495,7 @@ function PolaroidCard({
   onUpdated,
   onClose,
   onDelete,
+  onEditLocation,
   deleting,
   onDirtyChange,
   onPrev,
@@ -352,7 +589,8 @@ function PolaroidCard({
   };
 
   const hasPosition = !!(position && total);
-  const showHeader = hasPosition || !!onClose || (!!onDelete && isOwner);
+  const hasMenu = isOwner && (!!onDelete || !!onEditLocation);
+  const showHeader = hasPosition || !!onClose || hasMenu;
 
   return (
     <div
@@ -369,7 +607,7 @@ function PolaroidCard({
             <div />
           )}
           <div className="flex items-center gap-0.5">
-            {onDelete && isOwner && (
+            {hasMenu && (
               <div ref={menuRef} className="relative">
                 <button
                   type="button"
@@ -380,23 +618,38 @@ function PolaroidCard({
                   <MoreVertical className="w-4 h-4" />
                 </button>
                 {menuOpen && (
-                  <div className="absolute top-full right-0 mt-1 bg-white shadow-lg rounded border border-gray-200 py-1 min-w-[140px] z-10">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        onDelete();
-                      }}
-                      disabled={deleting}
-                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
-                    >
-                      {deleting ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Trash2 className="w-3.5 h-3.5" />
-                      )}
-                      {deleting ? 'Deleting...' : 'Delete'}
-                    </button>
+                  <div className="absolute top-full right-0 mt-1 bg-white shadow-lg rounded border border-gray-200 py-1 min-w-[160px] z-10">
+                    {onEditLocation && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          onEditLocation();
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-ink-900 hover:bg-gray-100"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        Edit location
+                      </button>
+                    )}
+                    {onDelete && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setMenuOpen(false);
+                          onDelete();
+                        }}
+                        disabled={deleting}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {deleting ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-3.5 h-3.5" />
+                        )}
+                        {deleting ? 'Deleting...' : 'Delete'}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -614,6 +867,149 @@ function MediaStrip({ memories, onSelectMemory, onClose }) {
   );
 }
 
+function LocationPickerToolbar({
+  coords,
+  locationName,
+  countryISO,
+  proximity,
+  sessionToken,
+  onPick,
+  onSave,
+  onCancel,
+  saving,
+  modeLabel,
+}) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const abortRef = useRef(null);
+  const debounceRef = useRef(null);
+  // After picking from the dropdown we also set the input value to the chosen
+  // place name. That would normally re-trigger the search effect — this ref
+  // tells the next effect run to skip exactly once.
+  const skipNextSearchRef = useRef(false);
+
+  // Abort any pending fetch on unmount.
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) abortRef.current.abort();
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, []);
+
+  // Run a debounced search whenever the query changes.
+  useEffect(() => {
+    if (skipNextSearchRef.current) {
+      skipNextSearchRef.current = false;
+      return;
+    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (abortRef.current) abortRef.current.abort();
+    if (!query.trim()) {
+      setResults([]);
+      setSearching(false);
+      return;
+    }
+    setSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      const ctrl = new AbortController();
+      abortRef.current = ctrl;
+      const res = await forwardGeocode(query, {
+        signal: ctrl.signal,
+        proximity,
+        country: countryISO,
+        sessionToken,
+      });
+      if (!ctrl.signal.aborted) {
+        setResults(res);
+        setSearching(false);
+        setShowResults(true);
+      }
+    }, 300);
+  }, [query, proximity, countryISO, sessionToken]);
+
+  const handlePick = (r) => {
+    skipNextSearchRef.current = true;
+    setQuery(r.placeName);
+    setShowResults(false);
+    setResults([]);
+    setSearching(false);
+    onPick(r.coords, r.placeName, 'search');
+  };
+
+  const subtitle = locationName
+    ? locationName
+    : `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+
+  return (
+    <div className="absolute top-3 left-3 right-3 z-20 max-w-[360px] mx-auto bg-white rounded-lg shadow-xl border border-gray-200 animate-fade-in">
+      <div className="px-3 py-2 border-b border-gray-100">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-sm font-medium text-ink-900">{modeLabel}</p>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="Close"
+            className="p-1 text-ink-700/40 hover:text-ink-900 hover:bg-gray-100 rounded transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+        <p className="text-[11px] text-ink-700/60 mt-0.5 truncate">{subtitle}</p>
+      </div>
+      <div className="px-3 py-2">
+        <div className="relative">
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => results.length > 0 && setShowResults(true)}
+            placeholder="Search address or place..."
+            className="w-full text-sm text-ink-900 bg-gray-50 border border-gray-300 rounded px-2 py-1.5 focus:outline-none focus:border-gold-600"
+          />
+          {showResults && (results.length > 0 || searching) && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded shadow-lg z-30 max-h-[200px] overflow-y-auto">
+              {searching && results.length === 0 && (
+                <p className="text-xs text-ink-700/60 px-2 py-1.5">Searching...</p>
+              )}
+              {results.map((r) => (
+                <button
+                  type="button"
+                  key={r.id}
+                  onClick={() => handlePick(r)}
+                  className="w-full text-left px-2 py-1.5 text-xs text-ink-900 hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                >
+                  {r.placeName}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <p className="text-[10px] text-ink-700/50 mt-1">or click on the map / drag the pin</p>
+        <div className="flex items-center justify-end gap-2 mt-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={saving}
+            className="px-3 py-1 text-xs text-ink-700 hover:text-ink-900 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saving}
+            className="px-3 py-1 text-xs bg-ink-900 text-white rounded hover:bg-ink-800 disabled:opacity-50"
+          >
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function MemoriesMapTab({ trip }) {
   const { user } = useAuth();
   const [memories, setMemories] = useState([]);
@@ -625,10 +1021,15 @@ export default function MemoriesMapTab({ trip }) {
   const [albumMemories, setAlbumMemories] = useState(null); // null | array of memories
   const [lightboxIndex, setLightboxIndex] = useState(null); // null | index in album
   const [selectedCluster, setSelectedCluster] = useState(null); // null | { longitude, latitude, memories }
+  // null | { mode, coords, locationName, nameSource, memoryId?, sessionToken }
+  const [locationPicker, setLocationPicker] = useState(null);
+  const [pickerSaving, setPickerSaving] = useState(false);
   const fileInputRef = useRef(null);
   const mapRef = useRef(null);
   // Tracks whether the open popover has unsaved caption edits.
   const dirtyRef = useRef(false);
+  // Debounce timer for reverse-geocoding the picker's coords after click/drag.
+  const reverseGeoTimerRef = useRef(null);
 
   const handleMemoryUpdate = useCallback((updated) => {
     setMemories((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
@@ -656,6 +1057,163 @@ export default function MemoriesMapTab({ trip }) {
     guardedAction(() => setSelectedCluster(null));
   }, [guardedAction]);
 
+  const startEditLocation = useCallback((memory) => {
+    guardedAction(() => {
+      const coords = parseCoords(memory.location_coords);
+      if (!coords) return;
+      setSelectedCluster(null);
+      setLocationPicker({
+        mode: 'edit',
+        memoryId: memory.id,
+        coords,
+        locationName: memory.location_name || null,
+        nameSource: memory.location_name ? 'manual' : 'pending-reverse',
+        sessionToken: crypto.randomUUID
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random()}`,
+      });
+      // Fly map to the photo's spot so the pin is in view.
+      mapRef.current?.flyTo?.({ center: [coords.lng, coords.lat], zoom: 13, duration: 600 });
+    });
+  }, [guardedAction]);
+
+  const startUploadLocationPick = useCallback(() => {
+    if (!pendingUpload) return;
+    setLocationPicker({
+      mode: 'upload',
+      coords: { ...pendingUpload.coords },
+      locationName: pendingUpload.detectedPlace || null,
+      nameSource: pendingUpload.detectedPlace ? 'manual' : 'pending-reverse',
+      sessionToken: crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random()}`,
+    });
+    mapRef.current?.flyTo?.({
+      center: [pendingUpload.coords.lng, pendingUpload.coords.lat],
+      zoom: 13,
+      duration: 600,
+    });
+  }, [pendingUpload]);
+
+  const cancelLocationPick = useCallback(() => {
+    if (reverseGeoTimerRef.current) {
+      clearTimeout(reverseGeoTimerRef.current);
+      reverseGeoTimerRef.current = null;
+    }
+    setLocationPicker(null);
+  }, []);
+
+  const updatePickerCoords = useCallback((coords) => {
+    setLocationPicker((prev) =>
+      prev
+        ? {
+            ...prev,
+            coords,
+            // Clicking/dragging invalidates any previous name. We'll refresh it.
+            locationName: null,
+            nameSource: 'pending-reverse',
+          }
+        : prev
+    );
+    // Debounced reverse geocode so the toolbar shows the address.
+    if (reverseGeoTimerRef.current) clearTimeout(reverseGeoTimerRef.current);
+    reverseGeoTimerRef.current = setTimeout(async () => {
+      const geo = await reverseGeocode(coords.lat, coords.lng);
+      setLocationPicker((prev) => {
+        if (!prev) return prev;
+        // Stale check: ignore if user moved to different coords meanwhile.
+        if (prev.coords.lat !== coords.lat || prev.coords.lng !== coords.lng) return prev;
+        // Don't override if the user picked from search since.
+        if (prev.nameSource === 'search') return prev;
+        return {
+          ...prev,
+          locationName: geo?.placeName || null,
+          nameSource: 'reverse',
+        };
+      });
+    }, 500);
+  }, []);
+
+  const handlePickerPick = useCallback((coords, placeName, nameSource) => {
+    setLocationPicker((prev) =>
+      prev ? { ...prev, coords, locationName: placeName, nameSource } : prev
+    );
+  }, []);
+
+  const saveLocationPick = useCallback(async () => {
+    const picker = locationPicker;
+    if (!picker) return;
+    if (reverseGeoTimerRef.current) {
+      clearTimeout(reverseGeoTimerRef.current);
+      reverseGeoTimerRef.current = null;
+    }
+    setPickerSaving(true);
+    try {
+      // If user didn't pick from search, refresh place name via reverse geocoding.
+      let finalName = picker.locationName;
+      let geo = null;
+      if (picker.nameSource !== 'search') {
+        geo = await reverseGeocode(picker.coords.lat, picker.coords.lng);
+        if (geo?.placeName) finalName = geo.placeName;
+      }
+
+      if (picker.mode === 'edit') {
+        const wkt = `POINT(${picker.coords.lng} ${picker.coords.lat})`;
+        const { data: updatedRow, error } = await supabase
+          .from('memories')
+          .update({ location_coords: wkt, location_name: finalName || null })
+          .eq('id', picker.memoryId)
+          .select()
+          .single();
+        if (error) {
+          alert('Could not save location: ' + error.message);
+          setPickerSaving(false);
+          return;
+        }
+        // Optimistic merge: keep coords as plain {lat,lng} for the in-memory shape.
+        const updated = {
+          ...updatedRow,
+          coords: picker.coords,
+        };
+        handleMemoryUpdate(updated);
+        // Re-open the popover anchored at the new spot, focused on this memory.
+        setSelectedCluster({
+          longitude: picker.coords.lng,
+          latitude: picker.coords.lat,
+          memories: [updated],
+          focusedMemoryId: updated.id,
+        });
+        mapRef.current?.flyTo?.({
+          center: [picker.coords.lng, picker.coords.lat],
+          zoom: 13,
+          duration: 600,
+        });
+      } else {
+        // upload mode: merge into pendingUpload, recompute country mismatch
+        const detectedCountry = geo?.country || null;
+        const matchesTripCountry =
+          detectedCountry &&
+          (detectedCountry.toLowerCase() === tripCountry.toLowerCase() ||
+            normalizeCountryName(detectedCountry).toLowerCase() === tripCountry.toLowerCase());
+        setPendingUpload((prev) =>
+          prev
+            ? {
+                ...prev,
+                coords: picker.coords,
+                detectedCountry,
+                detectedPlace: finalName || null,
+                matchesTripCountry: !!matchesTripCountry,
+                coordsSource: 'manual',
+              }
+            : prev
+        );
+      }
+      setLocationPicker(null);
+    } finally {
+      setPickerSaving(false);
+    }
+  }, [locationPicker, handleMemoryUpdate]);
+
   // Close the popover when the user presses Escape (with dirty-check).
   useEffect(() => {
     if (!selectedCluster) return;
@@ -668,6 +1226,27 @@ export default function MemoriesMapTab({ trip }) {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [selectedCluster, closeWithCheck]);
+
+  // Escape closes the location picker too.
+  useEffect(() => {
+    if (!locationPicker) return;
+    const handleEscape = (e) => {
+      if (e.key !== 'Escape') return;
+      // Skip when an input/textarea has focus (the user is typing a search query).
+      const tag = document.activeElement?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      cancelLocationPick();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [locationPicker, cancelLocationPick]);
+
+  // If the memory being edited disappears (e.g. deleted by realtime), cancel the picker.
+  useEffect(() => {
+    if (!locationPicker || locationPicker.mode !== 'edit') return;
+    const exists = memories.some((m) => m.id === locationPicker.memoryId);
+    if (!exists) setLocationPicker(null);
+  }, [memories, locationPicker]);
 
   const tripCountry = normalizeCountryName(trip.country);
   const center = COUNTRY_CENTERS[tripCountry] || { lat: 21.0285, lng: 105.8542, zoom: 5 };
@@ -798,6 +1377,15 @@ export default function MemoriesMapTab({ trip }) {
         }
         if (exif?.DateTimeOriginal) {
           takenAt = new Date(exif.DateTimeOriginal).toISOString();
+        }
+      } else {
+        const meta = await extractVideoMetadata(file);
+        if (meta?.coords) {
+          coords = meta.coords;
+          coordsSource = 'video-meta';
+        }
+        if (meta?.takenAt) {
+          takenAt = meta.takenAt;
         }
       }
 
@@ -941,11 +1529,15 @@ export default function MemoriesMapTab({ trip }) {
           mapStyle={MAP_STYLE}
           attributionControl={false}
           onMove={(evt) => setZoom(evt.viewState.zoom)}
-          onClick={() => {
+          onClick={(evt) => {
+            if (locationPicker) {
+              updatePickerCoords({ lat: evt.lngLat.lat, lng: evt.lngLat.lng });
+              return;
+            }
             if (selectedCluster) closeWithCheck();
           }}
         >
-          {clusters.map((cluster, idx) => (
+          {!locationPicker && clusters.map((cluster, idx) => (
             <Marker
               key={`cluster-${idx}-${cluster.memories.map((m) => m.id).join('-')}`}
               longitude={cluster.coords.lng}
@@ -961,7 +1553,26 @@ export default function MemoriesMapTab({ trip }) {
             </Marker>
           ))}
 
-          {selectedCluster && (() => {
+          {locationPicker && (
+            <Marker
+              longitude={locationPicker.coords.lng}
+              latitude={locationPicker.coords.lat}
+              anchor="bottom"
+              draggable
+              onDragEnd={(e) =>
+                updatePickerCoords({ lat: e.lngLat.lat, lng: e.lngLat.lng })
+              }
+            >
+              <div className="relative cursor-grab active:cursor-grabbing">
+                <div className="w-10 h-10 rounded-full border-4 border-gold-500 bg-lacquer-700 shadow-gold flex items-center justify-center">
+                  <MapPin className="w-5 h-5 text-gold-50" fill="currentColor" />
+                </div>
+                <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gold-500 rotate-45" />
+              </div>
+            </Marker>
+          )}
+
+          {!locationPicker && selectedCluster && (() => {
             const cluster = selectedCluster;
             const memories = cluster.memories;
             const isCluster = memories.length > 1;
@@ -1007,6 +1618,11 @@ export default function MemoriesMapTab({ trip }) {
                     onUpdated={handleMemoryUpdate}
                     onClose={handleSingleClose}
                     onDelete={() => deleteMemory(singleMemory)}
+                    onEditLocation={
+                      singleMemory.user_id === user?.id
+                        ? () => startEditLocation(singleMemory)
+                        : undefined
+                    }
                     deleting={deletingId === singleMemory.id}
                     onDirtyChange={handleDirtyChange}
                     onPrev={handlePrev}
@@ -1026,9 +1642,24 @@ export default function MemoriesMapTab({ trip }) {
           })()}
         </Map>
 
+        {locationPicker && (
+          <LocationPickerToolbar
+            coords={locationPicker.coords}
+            locationName={locationPicker.locationName}
+            countryISO={tripCountryISO(tripCountry)}
+            proximity={locationPicker.coords}
+            sessionToken={locationPicker.sessionToken}
+            modeLabel={locationPicker.mode === 'edit' ? 'Edit location' : 'Pick location'}
+            saving={pickerSaving}
+            onPick={handlePickerPick}
+            onSave={saveLocationPick}
+            onCancel={cancelLocationPick}
+          />
+        )}
+
         <button
           onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
+          disabled={uploading || !!locationPicker}
           className="absolute bottom-4 right-4 z-10 btn-gold flex items-center gap-2 shadow-2xl"
         >
           {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
@@ -1118,6 +1749,8 @@ export default function MemoriesMapTab({ trip }) {
           onSave={uploadMemory}
           onUseCurrentLocation={useCurrentLocation}
           onUseTripCountryCenter={useTripCountryCenter}
+          onPickOnMap={startUploadLocationPick}
+          hidden={!!locationPicker && locationPicker.mode === 'upload'}
           uploading={uploading}
         />
       )}
@@ -1321,7 +1954,7 @@ function Lightbox({ memories, startIndex, onClose, onIndexChange, onDelete, dele
 }
 
 // ─── UPLOAD MODAL ──────────────────────────────────────────────
-function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation, onUseTripCountryCenter, uploading }) {
+function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation, onUseTripCountryCenter, onPickOnMap, hidden, uploading }) {
   const [caption, setCaption] = useState('');
   const [locationName, setLocationName] = useState(data.detectedPlace || '');
   const [coords, setCoords] = useState(data.coords);
@@ -1343,7 +1976,10 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
   const showMismatchWarning = data.detectedCountry && !data.matchesTripCountry && !confirmedMismatch;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink-900/80 backdrop-blur-sm animate-fade-in">
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-ink-900/80 backdrop-blur-sm animate-fade-in"
+      style={hidden ? { display: 'none' } : undefined}
+    >
       <div className="card-warm ornamental-border w-full max-w-md animate-slide-up max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-xl font-bold">
@@ -1412,6 +2048,17 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
                 )}
               </div>
             </div>
+          )}
+
+          {onPickOnMap && (
+            <button
+              type="button"
+              onClick={onPickOnMap}
+              className="w-full py-2 px-3 bg-gold-500/15 hover:bg-gold-500/25 border border-gold-500/40 rounded-lg text-xs text-gold-100 flex items-center justify-center gap-2"
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              <span>Pick exact location on map</span>
+            </button>
           )}
 
           <div>
