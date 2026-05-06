@@ -4,10 +4,11 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import exifr from 'exifr';
 import {
   Upload, MapPin, Loader2, X, Play, Navigation, Trash2,
-  AlertTriangle, Check, ChevronLeft, ChevronRight, ArrowLeft,
+  AlertTriangle, Check, ChevronLeft, ChevronRight, ArrowLeft, Clock, Pencil, MoreVertical,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatDate } from '../lib/utils';
+import { useAuth } from '../contexts/AuthContext';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const MAP_STYLE = 'mapbox://styles/mapbox/outdoors-v12';
@@ -175,21 +176,18 @@ function calculateBounds(memories) {
 }
 
 function VideoThumbnail({ src, className }) {
-  const videoRef = useRef(null);
+  // Append a media-fragment so the browser seeks to 0.1s and renders a real frame.
+  const previewSrc = src ? `${src}#t=0.1` : src;
   return (
     <div className={`relative ${className} overflow-hidden bg-ink-900`}>
       <video
-        ref={videoRef}
-        src={src}
+        src={previewSrc}
         className="w-full h-full object-cover"
         muted
         playsInline
         preload="metadata"
-        onLoadedData={() => {
-          if (videoRef.current) videoRef.current.currentTime = 0.1;
-        }}
       />
-      <div className="absolute inset-0 flex items-center justify-center bg-black/30 pointer-events-none">
+      <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
         <div className="w-8 h-8 rounded-full bg-gold-500/90 flex items-center justify-center shadow-lg">
           <Play className="w-4 h-4 text-ink-900 ml-0.5" fill="currentColor" />
         </div>
@@ -240,7 +238,384 @@ function SingleMarker({ memory }) {
   );
 }
 
+function formatLocationLabel(memory) {
+  if (memory.location_name) return memory.location_name;
+  const coords = parseCoords(memory.location_coords);
+  if (coords) return `${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`;
+  return null;
+}
+
+function formatDateTimeLabel(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const datePart = formatDate(d);
+  const timePart = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  return `${datePart} • ${timePart}`;
+}
+
+function PolaroidCard({
+  memory,
+  currentUserId,
+  onUpdated,
+  onClose,
+  onDelete,
+  deleting,
+  onDirtyChange,
+  onPrev,
+  onNext,
+  position,
+  total,
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const editRef = useRef(null);
+  const menuRef = useRef(null);
+
+  const isOwner = !!currentUserId && memory.user_id === currentUserId;
+  const location = formatLocationLabel(memory);
+  const dateTime = formatDateTimeLabel(memory.taken_at || memory.created_at);
+
+  // Tell the parent when there are unsaved edits, so it can ask before closing.
+  useEffect(() => {
+    const isDirty = editing && draft !== (memory.caption || '');
+    onDirtyChange?.(isDirty);
+  }, [editing, draft, memory.caption, onDirtyChange]);
+
+  // Reset dirty flag when this card unmounts.
+  useEffect(() => {
+    return () => onDirtyChange?.(false);
+  }, [onDirtyChange]);
+
+  // Close the kebab menu when clicking anywhere outside it.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handleClickOutsideMenu = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutsideMenu);
+    return () => document.removeEventListener('mousedown', handleClickOutsideMenu);
+  }, [menuOpen]);
+
+  const startEdit = () => {
+    if (!isOwner) return;
+    setDraft(memory.caption || '');
+    setEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(false);
+    setDraft('');
+  };
+
+  const saveEdit = async () => {
+    const trimmed = draft.trim();
+    const newCaption = trimmed === '' ? null : trimmed;
+    if (newCaption === (memory.caption ?? null)) {
+      cancelEdit();
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from('memories')
+      .update({ caption: newCaption })
+      .eq('id', memory.id);
+    setSaving(false);
+    if (error) {
+      alert('Failed to save: ' + error.message);
+      return;
+    }
+    onUpdated?.({ ...memory, caption: newCaption });
+    setEditing(false);
+    setDraft('');
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      cancelEdit();
+    } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      saveEdit();
+    }
+  };
+
+  // If the user clicks on a non-button passive area while editing, exit edit silently.
+  const handleCardClick = (e) => {
+    if (!editing) return;
+    if (editRef.current?.contains(e.target)) return;
+    if (e.target.closest('button')) return;
+    cancelEdit();
+  };
+
+  const hasPosition = !!(position && total);
+  const showHeader = hasPosition || !!onClose || (!!onDelete && isOwner);
+
+  return (
+    <div
+      className="w-[240px] bg-white p-2.5 pb-4 shadow-xl animate-fade-in"
+      onClick={handleCardClick}
+    >
+      {showHeader && (
+        <div className="flex items-center justify-between mb-1.5">
+          {hasPosition ? (
+            <span className="text-[11px] text-ink-700/60 font-medium">
+              {position} of {total}
+            </span>
+          ) : (
+            <div />
+          )}
+          <div className="flex items-center gap-0.5">
+            {onDelete && isOwner && (
+              <div ref={menuRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  aria-label="More options"
+                  className="p-1 text-ink-700/40 hover:text-ink-900 hover:bg-gray-100 rounded transition-colors"
+                >
+                  <MoreVertical className="w-4 h-4" />
+                </button>
+                {menuOpen && (
+                  <div className="absolute top-full right-0 mt-1 bg-white shadow-lg rounded border border-gray-200 py-1 min-w-[140px] z-10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false);
+                        onDelete();
+                      }}
+                      disabled={deleting}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {deleting ? (
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Trash2 className="w-3.5 h-3.5" />
+                      )}
+                      {deleting ? 'Deleting...' : 'Delete'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                aria-label="Close"
+                className="p-1 text-ink-700/40 hover:text-ink-900 hover:bg-gray-100 rounded transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+      <div className="relative">
+        <div className="flex items-center justify-center min-h-[120px] bg-gray-50">
+          {memory.media_type === 'photo' ? (
+            <img
+              src={memory.media_url}
+              alt=""
+              className="block max-w-full max-h-[160px]"
+            />
+          ) : (
+            <video
+              src={`${memory.media_url}#t=0.1`}
+              controls
+              playsInline
+              preload="metadata"
+              className="block max-w-full max-h-[180px] bg-black"
+            />
+          )}
+        </div>
+        {onPrev && (
+          <button
+            type="button"
+            onClick={onPrev}
+            aria-label="Previous photo"
+            className="absolute left-1 top-1/2 -translate-y-1/2 w-7 h-7 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
+        {onNext && (
+          <button
+            type="button"
+            onClick={onNext}
+            aria-label="Next photo"
+            className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+      <div className="mt-2 px-0.5 space-y-1">
+        {location && (
+          <div className="flex items-center gap-1 text-ink-800">
+            <MapPin className="w-3 h-3 flex-shrink-0" />
+            <span className="text-[11px] truncate">{location}</span>
+          </div>
+        )}
+        {dateTime && (
+          <div className="flex items-center gap-1 text-ink-700/70">
+            <Clock className="w-3 h-3 flex-shrink-0" />
+            <span className="text-[11px]">{dateTime}</span>
+          </div>
+        )}
+        {editing ? (
+          <div ref={editRef} className="pt-1">
+            <textarea
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Write a note..."
+              rows={3}
+              className="w-full text-sm font-accent text-ink-900 bg-gray-50 border border-gray-300 rounded p-1.5 resize-none focus:outline-none focus:border-gold-600"
+            />
+            <div className="flex items-center gap-1.5 mt-1">
+              <button
+                type="button"
+                onClick={saveEdit}
+                disabled={saving}
+                className="px-2.5 py-0.5 text-[11px] bg-ink-900 text-white rounded hover:bg-ink-800 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={cancelEdit}
+                disabled={saving}
+                className="px-2.5 py-0.5 text-[11px] text-ink-700 hover:text-ink-900"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : memory.caption ? (
+          <div className="flex items-start gap-1 pt-1">
+            <p
+              onDoubleClick={startEdit}
+              className="font-accent text-sm text-ink-900 leading-snug flex-1"
+            >
+              {memory.caption}
+            </p>
+            {isOwner && (
+              <button
+                type="button"
+                onClick={startEdit}
+                className="p-0.5 text-ink-700/40 hover:text-ink-900 transition-colors"
+                aria-label="Edit caption"
+              >
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        ) : isOwner ? (
+          <button
+            type="button"
+            onClick={startEdit}
+            className="text-[11px] text-ink-700/50 italic hover:text-ink-700 pt-1 text-left"
+          >
+            Add a note...
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function MediaStrip({ memories, onSelectMemory, onClose }) {
+  const scrollRef = useRef(null);
+  const count = memories.length;
+  const namesSet = new Set(memories.map((m) => m.location_name).filter(Boolean));
+  const sharedName = namesSet.size === 1 ? [...namesSet][0] : null;
+  const showArrows = count > 3;
+
+  const scroll = (direction) => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * 160, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="w-[280px] bg-white shadow-xl animate-fade-in">
+      <div className="px-3 py-2 border-b border-gray-200 flex items-start gap-2">
+        <div className="flex-1 min-w-0">
+          {sharedName ? (
+            <>
+              <p className="text-sm font-medium text-ink-900 truncate">{sharedName}</p>
+              <p className="text-[11px] text-ink-700/70 mt-0.5">{count} memories</p>
+            </>
+          ) : (
+            <p className="text-sm font-medium text-ink-900">
+              {count} memories at this location
+            </p>
+          )}
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="p-1 -mt-0.5 text-ink-700/40 hover:text-ink-900 hover:bg-gray-100 rounded transition-colors flex-shrink-0"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+      <div className="relative px-2 py-2.5">
+        {showArrows && (
+          <button
+            type="button"
+            onClick={() => scroll(-1)}
+            aria-label="Scroll left"
+            className="absolute left-1 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/95 border border-gray-200 hover:bg-gray-100 text-ink-900 rounded-full flex items-center justify-center shadow-sm z-10 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+        )}
+        <div
+          ref={scrollRef}
+          className={`overflow-x-auto flex gap-1.5 scroll-smooth scrollbar-hide snap-x snap-mandatory ${showArrows ? 'mx-7' : ''}`}
+        >
+          {memories.map((m) => (
+            <button
+              type="button"
+              key={m.id}
+              onClick={() => onSelectMemory(m.id)}
+              className="flex-shrink-0 w-16 h-16 overflow-hidden bg-gray-100 hover:opacity-90 transition-opacity snap-start"
+              aria-label="Open memory"
+            >
+              {m.media_type === 'photo' ? (
+                <img src={m.media_url} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <VideoThumbnail src={m.media_url} className="w-full h-full" />
+              )}
+            </button>
+          ))}
+        </div>
+        {showArrows && (
+          <button
+            type="button"
+            onClick={() => scroll(1)}
+            aria-label="Scroll right"
+            className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 bg-white/95 border border-gray-200 hover:bg-gray-100 text-ink-900 rounded-full flex items-center justify-center shadow-sm z-10 transition-colors"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function MemoriesMapTab({ trip }) {
+  const { user } = useAuth();
   const [memories, setMemories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -249,8 +624,50 @@ export default function MemoriesMapTab({ trip }) {
   const [zoom, setZoom] = useState(5);
   const [albumMemories, setAlbumMemories] = useState(null); // null | array of memories
   const [lightboxIndex, setLightboxIndex] = useState(null); // null | index in album
+  const [selectedCluster, setSelectedCluster] = useState(null); // null | { longitude, latitude, memories }
   const fileInputRef = useRef(null);
   const mapRef = useRef(null);
+  // Tracks whether the open popover has unsaved caption edits.
+  const dirtyRef = useRef(false);
+
+  const handleMemoryUpdate = useCallback((updated) => {
+    setMemories((prev) => prev.map((m) => (m.id === updated.id ? updated : m)));
+    setSelectedCluster((prev) =>
+      prev
+        ? { ...prev, memories: prev.memories.map((m) => (m.id === updated.id ? updated : m)) }
+        : prev
+    );
+  }, []);
+
+  const handleDirtyChange = useCallback((isDirty) => {
+    dirtyRef.current = isDirty;
+  }, []);
+
+  // Runs an action, but first asks the user if there are unsaved caption edits.
+  const guardedAction = useCallback((action) => {
+    if (dirtyRef.current) {
+      if (!window.confirm('Discard unsaved caption changes?')) return;
+    }
+    dirtyRef.current = false;
+    action();
+  }, []);
+
+  const closeWithCheck = useCallback(() => {
+    guardedAction(() => setSelectedCluster(null));
+  }, [guardedAction]);
+
+  // Close the popover when the user presses Escape (with dirty-check).
+  useEffect(() => {
+    if (!selectedCluster) return;
+    const handleEscape = (e) => {
+      if (e.key !== 'Escape') return;
+      // If a textarea has focus, the edit handler in PolaroidCard handles Escape itself.
+      if (document.activeElement?.tagName === 'TEXTAREA') return;
+      closeWithCheck();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [selectedCluster, closeWithCheck]);
 
   const tripCountry = normalizeCountryName(trip.country);
   const center = COUNTRY_CENTERS[tripCountry] || { lat: 21.0285, lng: 105.8542, zoom: 5 };
@@ -305,6 +722,14 @@ export default function MemoriesMapTab({ trip }) {
           }
         }
       }
+      // Update map popover if open
+      setSelectedCluster((prev) => {
+        if (!prev) return prev;
+        const newMems = prev.memories.filter((m) => m.id !== memory.id);
+        if (newMems.length === 0) return null;
+        const newFocused = prev.focusedMemoryId === memory.id ? null : prev.focusedMemoryId;
+        return { ...prev, memories: newMems, focusedMemoryId: newFocused };
+      });
 
       if (memory.media_url) {
         const urlParts = memory.media_url.split('/memories/');
@@ -486,10 +911,15 @@ export default function MemoriesMapTab({ trip }) {
     }));
   }
 
-  // Click handler for marker - opens album with all memories at that location
+  // Click handler for marker - opens popover anchored at the cluster location
   const handleMarkerClick = useCallback((cluster, e) => {
     e.originalEvent.stopPropagation();
-    setAlbumMemories(cluster.memories);
+    setSelectedCluster({
+      longitude: cluster.coords.lng,
+      latitude: cluster.coords.lat,
+      memories: cluster.memories,
+      focusedMemoryId: null,
+    });
   }, []);
 
   if (!MAPBOX_TOKEN) {
@@ -511,6 +941,9 @@ export default function MemoriesMapTab({ trip }) {
           mapStyle={MAP_STYLE}
           attributionControl={false}
           onMove={(evt) => setZoom(evt.viewState.zoom)}
+          onClick={() => {
+            if (selectedCluster) closeWithCheck();
+          }}
         >
           {clusters.map((cluster, idx) => (
             <Marker
@@ -527,6 +960,70 @@ export default function MemoriesMapTab({ trip }) {
               )}
             </Marker>
           ))}
+
+          {selectedCluster && (() => {
+            const cluster = selectedCluster;
+            const memories = cluster.memories;
+            const isCluster = memories.length > 1;
+            const focusedIdx = cluster.focusedMemoryId
+              ? memories.findIndex((m) => m.id === cluster.focusedMemoryId)
+              : -1;
+            const focusedMemory = focusedIdx >= 0 ? memories[focusedIdx] : null;
+            const showSingle = !isCluster || focusedMemory;
+            const singleMemory = !isCluster ? memories[0] : focusedMemory;
+
+            const goToFocus = (id) =>
+              setSelectedCluster((prev) =>
+                prev ? { ...prev, focusedMemoryId: id } : prev
+              );
+            // X in focused-from-cluster goes back to the strip; in single-direct it closes.
+            const handleSingleClose = isCluster
+              ? () => guardedAction(() => goToFocus(null))
+              : closeWithCheck;
+            const handlePrev =
+              isCluster && focusedIdx > 0
+                ? () => guardedAction(() => goToFocus(memories[focusedIdx - 1].id))
+                : undefined;
+            const handleNext =
+              isCluster && focusedIdx < memories.length - 1
+                ? () => guardedAction(() => goToFocus(memories[focusedIdx + 1].id))
+                : undefined;
+
+            return (
+              <Popup
+                longitude={cluster.longitude}
+                latitude={cluster.latitude}
+                anchor="bottom"
+                closeOnClick={false}
+                closeButton={false}
+                onClose={() => setSelectedCluster(null)}
+                maxWidth="none"
+                className="memory-popup"
+              >
+                {showSingle ? (
+                  <PolaroidCard
+                    memory={singleMemory}
+                    currentUserId={user?.id}
+                    onUpdated={handleMemoryUpdate}
+                    onClose={handleSingleClose}
+                    onDelete={() => deleteMemory(singleMemory)}
+                    deleting={deletingId === singleMemory.id}
+                    onDirtyChange={handleDirtyChange}
+                    onPrev={handlePrev}
+                    onNext={handleNext}
+                    position={isCluster && focusedMemory ? focusedIdx + 1 : undefined}
+                    total={isCluster ? memories.length : undefined}
+                  />
+                ) : (
+                  <MediaStrip
+                    memories={memories}
+                    onClose={closeWithCheck}
+                    onSelectMemory={goToFocus}
+                  />
+                )}
+              </Popup>
+            );
+          })()}
         </Map>
 
         <button
