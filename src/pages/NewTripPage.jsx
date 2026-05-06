@@ -64,7 +64,7 @@ export default function NewTripPage() {
 
   return (
     <div className="min-h-screen pb-10 grain">
-      <header className="sticky top-0 z-30 bg-ink-900/80 backdrop-blur-xl border-b border-lacquer-900/30 safe-area-inset-top">
+      <header className="sticky top-0 z-30 bg-ink-900/80 backdrop-blur-xl border-b border-teal-900/30 safe-area-inset-top">
         <div className="max-w-2xl mx-auto px-5 py-4 flex items-center justify-between">
           <Link to="/" className="btn-ghost p-2" aria-label="Back">
             <ArrowLeft className="w-5 h-5" />
@@ -76,16 +76,16 @@ export default function NewTripPage() {
 
       <main className="max-w-2xl mx-auto px-5 pt-8">
         <div className="mb-8 animate-fade-in">
-          <p className="font-accent italic text-gold-500/80 text-lg">Let's plan your</p>
+          <p className="font-accent italic text-coral-500/80 text-lg">Let's plan your</p>
           <h1 className="font-display text-4xl font-bold mt-1">Next Adventure</h1>
-          <div className="gold-divider w-24 mt-3" />
+          <div className="coral-divider w-24 mt-3" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5 animate-slide-up">
           <div>
-            <label className="block text-sm font-medium text-ivory-100/80 mb-2">Trip Name</label>
+            <label className="block text-sm font-medium text-cream-100/80 mb-2">Trip Name</label>
             <div className="relative">
-              <Type className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gold-500/60" />
+              <Type className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
               <input
                 type="text"
                 value={name}
@@ -98,9 +98,9 @@ export default function NewTripPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-ivory-100/80 mb-2">Destination</label>
+            <label className="block text-sm font-medium text-cream-100/80 mb-2">Destination</label>
             <div className="relative mb-3">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gold-500/60" />
+              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
               <input
                 type="text"
                 value={country}
@@ -116,7 +116,7 @@ export default function NewTripPage() {
                   key={dest.name}
                   type="button"
                   onClick={() => setCountry(dest.name)}
-                  className="px-3 py-1.5 text-sm bg-ink-800/60 border border-lacquer-900/40 rounded-full hover:border-gold-500/40 hover:bg-ink-700/60 transition-all"
+                  className="px-3 py-1.5 text-sm bg-ink-800/60 border border-teal-900/40 rounded-full hover:border-coral-500/40 hover:bg-ink-700/60 transition-all"
                 >
                   <span className="mr-1.5">{dest.emoji}</span>
                   {dest.name}
@@ -127,9 +127,9 @@ export default function NewTripPage() {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-ivory-100/80 mb-2">Start Date</label>
+              <label className="block text-sm font-medium text-cream-100/80 mb-2">Start Date</label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gold-500/60 pointer-events-none" />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60 pointer-events-none" />
                 <input
                   type="date"
                   value={startDate}
@@ -140,9 +140,9 @@ export default function NewTripPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-ivory-100/80 mb-2">End Date</label>
+              <label className="block text-sm font-medium text-cream-100/80 mb-2">End Date</label>
               <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gold-500/60 pointer-events-none" />
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60 pointer-events-none" />
                 <input
                   type="date"
                   value={endDate}
@@ -156,7 +156,7 @@ export default function NewTripPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-ivory-100/80 mb-2">Description (Optional)</label>
+            <label className="block text-sm font-medium text-cream-100/80 mb-2">Description (Optional)</label>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -167,7 +167,7 @@ export default function NewTripPage() {
           </div>
 
           {error && (
-            <div className="p-3 bg-lacquer-900/40 border border-lacquer-700/40 rounded-lg text-sm text-lacquer-200">
+            <div className="p-3 bg-teal-900/40 border border-teal-700/40 rounded-lg text-sm text-teal-200">
               {error}
             </div>
           )}

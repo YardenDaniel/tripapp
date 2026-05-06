@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, MapPinned, MessageSquare, Phone, Coins, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { formatDate, daysBetween, cn } from '../lib/utils';
+import { formatDate, cn } from '../lib/utils';
 import LoadingScreen from '../components/LoadingScreen';
 import ItineraryTab from '../components/ItineraryTab';
 import MemoriesMapTab from '../components/MemoriesMapTab';
@@ -52,8 +52,6 @@ export default function TripPage() {
   if (loading) return <LoadingScreen message="Loading trip..." />;
   if (!trip) return null;
 
-  const totalDays = daysBetween(trip.start_date, trip.end_date);
-
   return (
     <div className="min-h-screen pb-24 grain">
       <header className="relative h-44 overflow-hidden">
@@ -66,24 +64,23 @@ export default function TripPage() {
 
         <Link
           to="/"
-          className="absolute top-4 left-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-ink-900/60 backdrop-blur-md border border-gold-500/20 safe-area-inset-top"
+          className="absolute top-4 left-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-ink-900/60 backdrop-blur-md border border-coral-500/30 text-cream-50 safe-area-inset-top"
           aria-label="Back"
         >
           <ArrowLeft className="w-5 h-5" />
         </Link>
 
         <div className="absolute bottom-0 inset-x-0 p-4">
-          <p className="font-accent italic text-gold-500 text-sm mb-1">{trip.country}</p>
-          <h1 className="font-display text-3xl font-bold text-ivory-50 leading-tight">
+          <h1 className="font-display text-3xl font-bold text-cream-50 leading-tight">
             {trip.name}
           </h1>
-          <p className="text-sm text-ivory-100/70 mt-1">
-            {formatDate(trip.start_date)} – {formatDate(trip.end_date)} · {totalDays} days
+          <p className="text-sm text-sage-300 mt-1">
+            {trip.country} • {formatDate(trip.start_date)} – {formatDate(trip.end_date)}
           </p>
         </div>
       </header>
 
-      <div className="sticky top-0 z-20 bg-ink-900/90 backdrop-blur-xl border-b border-lacquer-900/30">
+      <div className="sticky top-0 z-20 bg-surface-100/90 backdrop-blur-xl border-b border-surface-200">
         <div className="max-w-2xl mx-auto overflow-x-auto scrollbar-hide">
           <div className="flex gap-1 px-3 py-2 min-w-max">
             {TABS.map((tab) => {
@@ -96,8 +93,8 @@ export default function TripPage() {
                   className={cn(
                     'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 min-w-[80px]',
                     isActive
-                      ? 'bg-gradient-lacquer text-ivory-50 shadow-lacquer'
-                      : 'text-ivory-100/60 hover:text-ivory-100 hover:bg-ink-800/60'
+                      ? 'bg-gradient-teal text-white shadow-teal'
+                      : 'text-sage-600 hover:text-ink-900 hover:bg-surface-200'
                   )}
                 >
                   <Icon className="w-5 h-5" />

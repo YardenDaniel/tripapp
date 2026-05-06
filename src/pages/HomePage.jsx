@@ -8,7 +8,7 @@ import Logo from '../components/Logo';
 import LoadingScreen from '../components/LoadingScreen';
 
 export default function HomePage() {
-  const { profile, signOut } = useAuth();
+  const { signOut } = useAuth();
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -39,7 +39,7 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen pb-20 grain">
-      <header className="sticky top-0 z-30 bg-ink-900/80 backdrop-blur-xl border-b border-lacquer-900/30 safe-area-inset-top">
+      <header className="sticky top-0 z-30 bg-surface-100/90 backdrop-blur-xl border-b border-surface-200 safe-area-inset-top">
         <div className="max-w-2xl mx-auto px-5 py-4 flex items-center justify-between">
           <Logo size="sm" />
           <div className="flex items-center gap-2">
@@ -51,17 +51,9 @@ export default function HomePage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-5 pt-8">
-        <div className="mb-10 animate-fade-in">
-          <p className="font-accent italic text-gold-500/80 text-lg">Hello,</p>
-          <h1 className="font-display text-4xl font-bold mt-1">
-            {profile?.full_name?.split(' ')[0] || 'Traveler'}
-          </h1>
-          <div className="gold-divider w-24 mt-3" />
-        </div>
-
         {upcomingTrips.length > 0 && (
           <section className="mb-10">
-            <h2 className="font-display text-xl font-semibold mb-4 text-gold-500">
+            <h2 className="font-display text-xl font-semibold mb-4 text-coral-500">
               Upcoming Trips
             </h2>
             <div className="space-y-4">
@@ -74,14 +66,14 @@ export default function HomePage() {
 
         {trips.length === 0 && (
           <div className="text-center py-16 animate-fade-in">
-            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-lacquer flex items-center justify-center shadow-lacquer">
-              <MapPin className="w-12 h-12 text-gold-500" />
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-gradient-teal flex items-center justify-center shadow-teal">
+              <MapPin className="w-12 h-12 text-white" />
             </div>
             <h2 className="font-display text-2xl font-bold mb-3">Your journey starts here</h2>
-            <p className="text-ivory-100/60 mb-8 max-w-sm mx-auto leading-relaxed">
+            <p className="text-sage-600 mb-8 max-w-sm mx-auto leading-relaxed">
               No trips yet. Let's create your first trip and start documenting the adventure.
             </p>
-            <Link to="/trips/new" className="btn-gold inline-flex items-center gap-2">
+            <Link to="/trips/new" className="btn-coral inline-flex items-center gap-2">
               <Plus className="w-5 h-5" />
               <span>New Trip</span>
             </Link>
@@ -90,7 +82,7 @@ export default function HomePage() {
 
         {pastTrips.length > 0 && (
           <section className="mb-10">
-            <h2 className="font-display text-xl font-semibold mb-4 text-ivory-100/70">
+            <h2 className="font-display text-xl font-semibold mb-4 text-sage-600">
               Past Trips
             </h2>
             <div className="space-y-4 opacity-80">
@@ -105,7 +97,7 @@ export default function HomePage() {
       {trips.length > 0 && (
         <Link
           to="/trips/new"
-          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 btn-gold flex items-center gap-2 shadow-2xl hover:scale-105 active:scale-95 transition-transform"
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 btn-coral flex items-center gap-2 shadow-2xl hover:scale-105 active:scale-95 transition-transform"
         >
           <Plus className="w-5 h-5" />
           <span>New Trip</span>
@@ -126,7 +118,7 @@ function TripCard({ trip, delay = 0 }) {
       className="block animate-slide-up"
       style={{ animationDelay: `${delay}s` }}
     >
-      <div className="card-warm ornamental-border hover:border-gold-500/30 transition-all duration-300 group">
+      <div className="card-warm ornamental-border hover:border-coral-500/40 transition-all duration-300 group">
         <div className="relative -mx-5 -mt-5 mb-4 h-32 overflow-hidden rounded-t-2xl">
           {trip.cover_image_url ? (
             <img
@@ -135,13 +127,10 @@ function TripCard({ trip, delay = 0 }) {
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-sunset flex items-center justify-center">
-              <span className="text-6xl opacity-30">🏯</span>
-            </div>
+            <div className="w-full h-full bg-gradient-sunset" />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-transparent to-transparent" />
           {isFuture && daysUntil > 0 && daysUntil <= 30 && (
-            <div className="absolute top-3 right-3 px-3 py-1 bg-gold-500 text-ink-900 text-xs font-bold rounded-full shadow-gold">
+            <div className="absolute top-3 right-3 px-3 py-1 bg-coral-500 text-white text-xs font-bold rounded-full shadow-coral">
               In {daysUntil} days
             </div>
           )}
@@ -149,23 +138,23 @@ function TripCard({ trip, delay = 0 }) {
 
         <div>
           <div className="flex items-start justify-between gap-3 mb-2">
-            <h3 className="font-display text-xl font-bold text-ivory-50 leading-tight">
+            <h3 className="font-display text-xl font-bold text-ink-900 leading-tight">
               {trip.name}
             </h3>
-            <span className="text-xs text-gold-500 font-accent italic mt-1 whitespace-nowrap">
+            <span className="text-xs text-coral-600 font-accent italic mt-1 whitespace-nowrap">
               {trip.country}
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-sm text-ivory-100/60 mt-3">
+          <div className="flex items-center gap-4 text-sm text-sage-600 mt-3">
             <div className="flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-gold-500/60" />
+              <Calendar className="w-4 h-4 text-teal-500" />
               <span>{formatDate(trip.start_date, { month: 'short', day: 'numeric' })}</span>
-              <span className="text-gold-500/40">→</span>
+              <span className="text-sage-400">→</span>
               <span>{formatDate(trip.end_date, { month: 'short', day: 'numeric' })}</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="text-gold-500/60">·</span>
+              <span className="text-sage-400">·</span>
               <span>{totalDays} days</span>
             </div>
           </div>
