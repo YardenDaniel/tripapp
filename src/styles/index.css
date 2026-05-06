@@ -145,3 +145,13 @@
   .scrollbar-hide::-webkit-scrollbar { display: none; }
   .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 }
+
+.mapboxgl-popup.memory-popup .mapboxgl-popup-content {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+.mapboxgl-popup.memory-popup .mapboxgl-popup-tip {
+  display: none;
+}
