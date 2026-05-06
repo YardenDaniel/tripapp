@@ -1,0 +1,19 @@
+import Logo from './Logo';
+
+export default function LoadingScreen({ message = 'Loading...' }) {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 grain">
+      <div className="animate-fade-in flex flex-col items-center gap-6">
+        <div className="animate-pulse">
+          <Logo size="lg" />
+        </div>
+        <div className="flex items-center gap-2 text-gold-500/60 font-accent italic">
+          <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-bounce" style={{ animationDelay: '0ms' }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-bounce" style={{ animationDelay: '150ms' }} />
+          <span className="w-1.5 h-1.5 rounded-full bg-gold-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+        </div>
+        <p className="text-ivory-100/70 text-sm">{message}</p>
+      </div>
+    </div>
+  );
+}

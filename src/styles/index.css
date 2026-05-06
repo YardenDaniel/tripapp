@@ -1,0 +1,147 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-lacquer: #8B0000;
+    --color-gold: #D4AF37;
+    --color-ink: #1a0a0a;
+    --color-ivory: #fefdf8;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-ink-900 text-ivory-50 min-h-screen;
+    background-image:
+      radial-gradient(at 20% 0%, rgba(139, 0, 0, 0.15) 0px, transparent 50%),
+      radial-gradient(at 80% 100%, rgba(212, 175, 55, 0.08) 0px, transparent 50%);
+    background-attachment: fixed;
+    overscroll-behavior-y: none;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-display tracking-tight;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-ink-800;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-lacquer-700 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-lacquer-600;
+  }
+
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-6 py-3 bg-gradient-lacquer text-ivory-50 font-medium rounded-xl
+           shadow-lacquer hover:shadow-lg active:scale-[0.98]
+           transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed
+           border border-lacquer-700/40;
+  }
+
+  .btn-gold {
+    @apply px-6 py-3 bg-gradient-gold text-ink-900 font-semibold rounded-xl
+           shadow-gold hover:shadow-lg active:scale-[0.98]
+           transition-all duration-200 disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply px-4 py-2 text-ivory-100 hover:bg-ink-800 rounded-lg
+           transition-colors duration-200;
+  }
+
+  .input-field {
+    @apply w-full px-4 py-3 bg-ink-800/60 border border-lacquer-900/40
+           text-ivory-50 placeholder-ivory-50/40 rounded-xl
+           focus:outline-none focus:border-gold-500/60 focus:bg-ink-800
+           transition-all duration-200;
+  }
+
+  .card {
+    @apply bg-ink-800/40 backdrop-blur-md border border-lacquer-900/30
+           rounded-2xl p-5 shadow-lg;
+  }
+
+  .card-warm {
+    @apply bg-gradient-to-br from-ink-800/80 to-ink-900/80 backdrop-blur-md
+           border border-gold-500/10 rounded-2xl p-5 shadow-lg
+           relative overflow-hidden;
+  }
+
+  .gold-divider {
+    @apply h-px bg-gradient-to-r from-transparent via-gold-500/40 to-transparent;
+  }
+
+  .ornamental-border {
+    position: relative;
+  }
+  .ornamental-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 1px solid transparent;
+    border-radius: inherit;
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.4), transparent, rgba(212, 175, 55, 0.4)) border-box;
+    -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .shimmer {
+    @apply animate-shimmer bg-gradient-to-r from-ink-800 via-ink-700 to-ink-800;
+    background-size: 200% 100%;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .safe-area-inset-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-inset-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .grain {
+    position: relative;
+  }
+  .grain::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.4'/%3E%3C/svg%3E");
+    opacity: 0.03;
+    pointer-events: none;
+    mix-blend-mode: overlay;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}
