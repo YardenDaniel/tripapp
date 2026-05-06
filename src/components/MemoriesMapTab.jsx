@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react';
-import Map, { Marker, Popup } from 'react-map-gl';
+import MapGL, { Marker, Popup } from 'react-map-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import exifr from 'exifr';
 import {
   Upload, MapPin, Loader2, X, Play, Navigation, Trash2,
-  AlertTriangle, Check, ChevronLeft, ChevronRight, ArrowLeft, Clock, Pencil, MoreVertical,
+  AlertTriangle, Check, ChevronLeft, ChevronRight, ArrowLeft, Clock, Pencil, MoreVertical, Images,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatDate } from '../lib/utils';
@@ -502,6 +502,7 @@ function PolaroidCard({
   onNext,
   position,
   total,
+  fullscreen = false,
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
@@ -592,15 +593,48 @@ function PolaroidCard({
   const hasMenu = isOwner && (!!onDelete || !!onEditLocation);
   const showHeader = hasPosition || !!onClose || hasMenu;
 
+  // Size variants. The polaroid is used both as a small popover anchored to
+  // a map marker and as a fullscreen viewer (album). Most of the visual diff
+  // is controlled via these classes.
+  const s = fullscreen
+    ? {
+        card: 'w-full max-w-md mx-auto p-4 pb-6 shadow-2xl',
+        headerMb: 'mb-3',
+        mediaMinH: 'min-h-[280px]',
+        photoMaxH: 'max-h-[65vh]',
+        videoMaxH: 'max-h-[65vh]',
+        navBtn: 'w-10 h-10',
+        navIcon: 'w-5 h-5',
+        metaWrap: 'mt-3 px-1 space-y-1.5',
+        metaIcon: 'w-4 h-4',
+        metaText: 'text-xs',
+        captionText: 'text-base',
+        positionText: 'text-xs',
+      }
+    : {
+        card: 'w-[240px] p-2.5 pb-4 shadow-xl',
+        headerMb: 'mb-1.5',
+        mediaMinH: 'min-h-[120px]',
+        photoMaxH: 'max-h-[160px]',
+        videoMaxH: 'max-h-[180px]',
+        navBtn: 'w-7 h-7',
+        navIcon: 'w-4 h-4',
+        metaWrap: 'mt-2 px-0.5 space-y-1',
+        metaIcon: 'w-3 h-3',
+        metaText: 'text-[11px]',
+        captionText: 'text-sm',
+        positionText: 'text-[11px]',
+      };
+
   return (
     <div
-      className="w-[240px] bg-white p-2.5 pb-4 shadow-xl animate-fade-in"
+      className={`bg-white animate-fade-in ${s.card}`}
       onClick={handleCardClick}
     >
       {showHeader && (
-        <div className="flex items-center justify-between mb-1.5">
+        <div className={`flex items-center justify-between ${s.headerMb}`}>
           {hasPosition ? (
-            <span className="text-[11px] text-ink-700/60 font-medium">
+            <span className={`${s.positionText} text-ink-700/60 font-medium`}>
               {position} of {total}
             </span>
           ) : (
@@ -668,12 +702,12 @@ function PolaroidCard({
         </div>
       )}
       <div className="relative">
-        <div className="flex items-center justify-center min-h-[120px] bg-gray-50">
+        <div className={`flex items-center justify-center bg-gray-50 ${s.mediaMinH}`}>
           {memory.media_type === 'photo' ? (
             <img
               src={memory.media_url}
               alt=""
-              className="block max-w-full max-h-[160px]"
+              className={`block max-w-full ${s.photoMaxH}`}
             />
           ) : (
             <video
@@ -681,7 +715,7 @@ function PolaroidCard({
               controls
               playsInline
               preload="metadata"
-              className="block max-w-full max-h-[180px] bg-black"
+              className={`block max-w-full bg-black ${s.videoMaxH}`}
             />
           )}
         </div>
@@ -690,9 +724,9 @@ function PolaroidCard({
             type="button"
             onClick={onPrev}
             aria-label="Previous photo"
-            className="absolute left-1 top-1/2 -translate-y-1/2 w-7 h-7 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-colors"
+            className={`absolute left-1 top-1/2 -translate-y-1/2 ${s.navBtn} bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-colors`}
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className={s.navIcon} />
           </button>
         )}
         {onNext && (
@@ -700,23 +734,23 @@ function PolaroidCard({
             type="button"
             onClick={onNext}
             aria-label="Next photo"
-            className="absolute right-1 top-1/2 -translate-y-1/2 w-7 h-7 bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-colors"
+            className={`absolute right-1 top-1/2 -translate-y-1/2 ${s.navBtn} bg-black/40 hover:bg-black/60 text-white rounded-full flex items-center justify-center transition-colors`}
           >
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className={s.navIcon} />
           </button>
         )}
       </div>
-      <div className="mt-2 px-0.5 space-y-1">
+      <div className={s.metaWrap}>
         {location && (
-          <div className="flex items-center gap-1 text-ink-800">
-            <MapPin className="w-3 h-3 flex-shrink-0" />
-            <span className="text-[11px] truncate">{location}</span>
+          <div className="flex items-center gap-1.5 text-ink-800">
+            <MapPin className={`${s.metaIcon} flex-shrink-0`} />
+            <span className={`${s.metaText} truncate`}>{location}</span>
           </div>
         )}
         {dateTime && (
-          <div className="flex items-center gap-1 text-ink-700/70">
-            <Clock className="w-3 h-3 flex-shrink-0" />
-            <span className="text-[11px]">{dateTime}</span>
+          <div className="flex items-center gap-1.5 text-ink-700/70">
+            <Clock className={`${s.metaIcon} flex-shrink-0`} />
+            <span className={s.metaText}>{dateTime}</span>
           </div>
         )}
         {editing ? (
@@ -753,7 +787,7 @@ function PolaroidCard({
           <div className="flex items-start gap-1 pt-1">
             <p
               onDoubleClick={startEdit}
-              className="font-accent text-sm text-ink-900 leading-snug flex-1"
+              className={`font-accent ${s.captionText} text-ink-900 leading-snug flex-1`}
             >
               {memory.caption}
             </p>
@@ -1010,6 +1044,163 @@ function LocationPickerToolbar({
   );
 }
 
+function AlbumOverlay({
+  memories,
+  currentUserId,
+  onClose,
+  onMemoryUpdate,
+  onDelete,
+  deletingId,
+}) {
+  const [focusedIdx, setFocusedIdx] = useState(null);
+
+  // Newest first by taken_at, falling back to created_at. Missing dates sort last.
+  const sorted = useMemo(() => {
+    const list = [...memories];
+    list.sort((a, b) => {
+      const ta = new Date(a.taken_at || a.created_at || 0).getTime();
+      const tb = new Date(b.taken_at || b.created_at || 0).getTime();
+      const va = Number.isFinite(ta) ? ta : 0;
+      const vb = Number.isFinite(tb) ? tb : 0;
+      return vb - va;
+    });
+    return list;
+  }, [memories]);
+
+  const groups = useMemo(() => {
+    const byKey = new Map();
+    for (const m of sorted) {
+      const raw = m.taken_at || m.created_at;
+      const d = raw ? new Date(raw) : null;
+      const valid = d && !Number.isNaN(d.getTime());
+      const key = valid ? `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` : 'no-date';
+      if (!byKey.has(key)) {
+        byKey.set(key, { key, date: valid ? d : null, memories: [] });
+      }
+      byKey.get(key).memories.push(m);
+    }
+    return [...byKey.values()];
+  }, [sorted]);
+
+  // If the focused memory disappears (deleted), drop focus.
+  useEffect(() => {
+    if (focusedIdx === null) return;
+    if (focusedIdx >= sorted.length) {
+      setFocusedIdx(sorted.length > 0 ? sorted.length - 1 : null);
+    }
+  }, [sorted, focusedIdx]);
+
+  const focusedMemory = focusedIdx !== null ? sorted[focusedIdx] : null;
+  const total = sorted.length;
+
+  const handlePrev =
+    focusedIdx !== null && focusedIdx > 0
+      ? () => setFocusedIdx(focusedIdx - 1)
+      : undefined;
+  const handleNext =
+    focusedIdx !== null && focusedIdx < total - 1
+      ? () => setFocusedIdx(focusedIdx + 1)
+      : undefined;
+
+  // Escape: close polaroid first, then close album.
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key !== 'Escape') return;
+      if (document.activeElement?.tagName === 'TEXTAREA') return;
+      if (focusedIdx !== null) {
+        setFocusedIdx(null);
+      } else {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [focusedIdx, onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[55] bg-ink-900 flex flex-col animate-fade-in">
+      <div className="sticky top-0 z-10 bg-ink-900/95 backdrop-blur-md border-b border-lacquer-900/30 px-3 py-3 flex items-center gap-2 safe-area-inset-top">
+        <button
+          onClick={onClose}
+          className="p-2 text-ivory-100/80 hover:text-ivory-50 rounded-lg hover:bg-ink-800/60"
+          aria-label="Close album"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+        <div className="flex-1 text-center">
+          <h2 className="font-display text-lg font-bold text-ivory-50">All memories</h2>
+          <p className="text-xs text-ivory-100/60">
+            {total} {total === 1 ? 'memory' : 'memories'}
+          </p>
+        </div>
+        <div className="w-9" />
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-6">
+        {total === 0 && (
+          <p className="text-center text-ivory-100/60 mt-8">No memories yet.</p>
+        )}
+        {groups.map((group) => (
+          <section key={group.key}>
+            <h3 className="font-display text-sm font-semibold text-gold-500 mb-2">
+              {group.date ? formatDate(group.date) : 'Unknown date'}{' '}
+              <span className="text-ivory-100/40 font-normal">
+                — {group.memories.length}{' '}
+                {group.memories.length === 1 ? 'memory' : 'memories'}
+              </span>
+            </h3>
+            <div className="grid grid-cols-3 gap-2">
+              {group.memories.map((m) => {
+                const idx = sorted.findIndex((x) => x.id === m.id);
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setFocusedIdx(idx)}
+                    className="aspect-square rounded-xl overflow-hidden border border-lacquer-900/40 hover:border-gold-500/60 transition-all"
+                  >
+                    {m.media_type === 'photo' ? (
+                      <img
+                        src={m.media_url}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <VideoThumbnail src={m.media_url} className="w-full h-full" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+
+      {focusedMemory && (
+        <div
+          className="fixed inset-0 z-[60] bg-ink-900 flex items-center justify-center p-4 overflow-y-auto animate-fade-in"
+          onClick={() => setFocusedIdx(null)}
+        >
+          <div onClick={(e) => e.stopPropagation()} className="w-full max-w-md">
+            <PolaroidCard
+              memory={focusedMemory}
+              currentUserId={currentUserId}
+              onUpdated={onMemoryUpdate}
+              onClose={() => setFocusedIdx(null)}
+              onDelete={() => onDelete(focusedMemory)}
+              deleting={deletingId === focusedMemory.id}
+              onPrev={handlePrev}
+              onNext={handleNext}
+              position={focusedIdx + 1}
+              total={total}
+              fullscreen
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MemoriesMapTab({ trip }) {
   const { user } = useAuth();
   const [memories, setMemories] = useState([]);
@@ -1018,8 +1209,7 @@ export default function MemoriesMapTab({ trip }) {
   const [pendingUpload, setPendingUpload] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
   const [zoom, setZoom] = useState(5);
-  const [albumMemories, setAlbumMemories] = useState(null); // null | array of memories
-  const [lightboxIndex, setLightboxIndex] = useState(null); // null | index in album
+  const [albumOpen, setAlbumOpen] = useState(false);
   const [selectedCluster, setSelectedCluster] = useState(null); // null | { longitude, latitude, memories }
   // null | { mode, coords, locationName, nameSource, memoryId?, sessionToken }
   const [locationPicker, setLocationPicker] = useState(null);
@@ -1288,19 +1478,6 @@ export default function MemoriesMapTab({ trip }) {
     try {
       // Optimistic update
       setMemories((prev) => prev.filter((m) => m.id !== memory.id));
-      // Update album if open
-      if (albumMemories) {
-        const newAlbum = albumMemories.filter((m) => m.id !== memory.id);
-        if (newAlbum.length === 0) {
-          setAlbumMemories(null);
-          setLightboxIndex(null);
-        } else {
-          setAlbumMemories(newAlbum);
-          if (lightboxIndex !== null && lightboxIndex >= newAlbum.length) {
-            setLightboxIndex(newAlbum.length - 1);
-          }
-        }
-      }
       // Update map popover if open
       setSelectedCluster((prev) => {
         if (!prev) return prev;
@@ -1522,7 +1699,7 @@ export default function MemoriesMapTab({ trip }) {
   return (
     <div className="animate-fade-in">
       <div className="relative rounded-2xl overflow-hidden border border-lacquer-900/40 ornamental-border h-[500px]">
-        <Map
+        <MapGL
           ref={mapRef}
           mapboxAccessToken={MAPBOX_TOKEN}
           initialViewState={initialView}
@@ -1640,7 +1817,7 @@ export default function MemoriesMapTab({ trip }) {
               </Popup>
             );
           })()}
-        </Map>
+        </MapGL>
 
         {locationPicker && (
           <LocationPickerToolbar
@@ -1663,7 +1840,7 @@ export default function MemoriesMapTab({ trip }) {
           className="absolute bottom-4 right-4 z-10 btn-gold flex items-center gap-2 shadow-2xl"
         >
           {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
-          <span>Add Photo</span>
+          <span>Add Memory</span>
         </button>
 
         <input
@@ -1683,59 +1860,38 @@ export default function MemoriesMapTab({ trip }) {
       </div>
 
       {memories.length > 0 && (
-        <section className="mt-8">
-          <h3 className="font-display text-lg font-semibold mb-4 text-gold-500">Recent</h3>
-          <div className="grid grid-cols-3 gap-2">
-            {memories.slice(0, 9).map((m, idx) => (
-              <div key={m.id} className="relative group">
-                <button
-                  onClick={() => {
-                    setAlbumMemories(memories);
-                    setLightboxIndex(memories.findIndex((x) => x.id === m.id));
-                  }}
-                  className="w-full aspect-square rounded-xl overflow-hidden border border-lacquer-900/40 hover:border-gold-500/40 transition-all"
-                >
-                  {m.media_type === 'photo' ? (
-                    <img src={m.media_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <VideoThumbnail src={m.media_url} className="w-full h-full" />
-                  )}
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    deleteMemory(m);
-                  }}
-                  disabled={deletingId === m.id}
-                  className="absolute top-2 right-2 w-7 h-7 bg-red-600/90 hover:bg-red-700 text-white rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg disabled:opacity-50"
-                  title="Delete memory"
-                >
-                  {deletingId === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-                </button>
+        <section className="mt-6">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedCluster(null);
+              setLocationPicker(null);
+              setAlbumOpen(true);
+            }}
+            className="w-full card-warm flex items-center justify-between gap-3 py-4 px-5 hover:border-gold-500/40 transition-all"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gold-500/15 border border-gold-500/40 flex items-center justify-center">
+                <Images className="w-5 h-5 text-gold-500" />
               </div>
-            ))}
-          </div>
+              <div className="text-left">
+                <p className="font-display text-base font-semibold text-ivory-50">All memories</p>
+                <p className="text-xs text-ivory-100/60">
+                  {memories.length} {memories.length === 1 ? 'memory' : 'memories'} from this trip
+                </p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-gold-500/70" />
+          </button>
         </section>
       )}
 
-      {/* Album modal - grid view */}
-      {albumMemories && lightboxIndex === null && (
-        <AlbumModal
-          memories={albumMemories}
-          onClose={() => setAlbumMemories(null)}
-          onSelectMemory={(idx) => setLightboxIndex(idx)}
-          onDelete={deleteMemory}
-          deletingId={deletingId}
-        />
-      )}
-
-      {/* Lightbox - full-screen single memory with navigation */}
-      {albumMemories && lightboxIndex !== null && (
-        <Lightbox
-          memories={albumMemories}
-          startIndex={lightboxIndex}
-          onClose={() => setLightboxIndex(null)}
-          onIndexChange={setLightboxIndex}
+      {albumOpen && (
+        <AlbumOverlay
+          memories={memories}
+          currentUserId={user?.id}
+          onClose={() => setAlbumOpen(false)}
+          onMemoryUpdate={handleMemoryUpdate}
           onDelete={deleteMemory}
           deletingId={deletingId}
         />
@@ -1754,201 +1910,6 @@ export default function MemoriesMapTab({ trip }) {
           uploading={uploading}
         />
       )}
-    </div>
-  );
-}
-
-// ─── ALBUM MODAL ───────────────────────────────────────────────
-function AlbumModal({ memories, onClose, onSelectMemory, onDelete, deletingId }) {
-  const placeName = memories.find((m) => m.location_name)?.location_name || `${memories.length} memories`;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink-900/90 backdrop-blur-md animate-fade-in">
-      <div className="card-warm ornamental-border w-full sm:max-w-2xl max-h-[95vh] sm:max-h-[85vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl animate-slide-up">
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-ink-800/95 backdrop-blur-md border-b border-gold-500/20 -m-5 mb-4 px-5 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              <h3 className="font-display text-lg font-bold text-ivory-50 truncate">{placeName}</h3>
-              <p className="text-xs text-gold-500/70 mt-0.5">
-                {memories.length} {memories.length === 1 ? 'memory' : 'memories'}
-              </p>
-            </div>
-            <button onClick={onClose} className="btn-ghost p-2 shrink-0" aria-label="Close">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {memories.map((m, idx) => (
-            <div key={m.id} className="relative group">
-              <button
-                onClick={() => onSelectMemory(idx)}
-                className="w-full aspect-square rounded-xl overflow-hidden border border-lacquer-900/40 hover:border-gold-500/60 transition-all"
-              >
-                {m.media_type === 'photo' ? (
-                  <img src={m.media_url} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <VideoThumbnail src={m.media_url} className="w-full h-full" />
-                )}
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(m);
-                }}
-                disabled={deletingId === m.id}
-                className="absolute top-2 right-2 w-7 h-7 bg-red-600/90 hover:bg-red-700 text-white rounded-full opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex items-center justify-center shadow-lg disabled:opacity-50"
-                title="Delete"
-              >
-                {deletingId === m.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── LIGHTBOX ──────────────────────────────────────────────────
-function Lightbox({ memories, startIndex, onClose, onIndexChange, onDelete, deletingId }) {
-  const [currentIndex, setCurrentIndex] = useState(startIndex);
-
-  useEffect(() => {
-    setCurrentIndex(startIndex);
-  }, [startIndex]);
-
-  useEffect(() => {
-    onIndexChange(currentIndex);
-  }, [currentIndex, onIndexChange]);
-
-  // Keyboard navigation
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowLeft') goPrev();
-      if (e.key === 'ArrowRight') goNext();
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [currentIndex]);
-
-  const current = memories[currentIndex];
-  if (!current) return null;
-
-  function goPrev() {
-    setCurrentIndex((i) => (i > 0 ? i - 1 : memories.length - 1));
-  }
-
-  function goNext() {
-    setCurrentIndex((i) => (i < memories.length - 1 ? i + 1 : 0));
-  }
-
-  // Touch gestures for swipe
-  const touchStartX = useRef(null);
-  const handleTouchStart = (e) => {
-    touchStartX.current = e.touches[0].clientX;
-  };
-  const handleTouchEnd = (e) => {
-    if (touchStartX.current === null) return;
-    const diff = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0) goPrev();
-      else goNext();
-    }
-    touchStartX.current = null;
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-[60] bg-black/95 flex flex-col animate-fade-in"
-      onClick={onClose}
-    >
-      {/* Top bar */}
-      <div
-        className="flex items-center justify-between p-4 text-white safe-area-inset-top"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <button onClick={onClose} className="btn-ghost p-2 text-white" aria-label="Back to album">
-          <ArrowLeft className="w-6 h-6" />
-        </button>
-        <div className="text-sm font-medium">
-          {currentIndex + 1} / {memories.length}
-        </div>
-        <button
-          onClick={() => onDelete(current)}
-          disabled={deletingId === current.id}
-          className="btn-ghost p-2 text-red-400 hover:text-red-300"
-          aria-label="Delete"
-        >
-          {deletingId === current.id ? <Loader2 className="w-5 h-5 animate-spin" /> : <Trash2 className="w-5 h-5" />}
-        </button>
-      </div>
-
-      {/* Media area */}
-      <div
-        className="flex-1 flex items-center justify-center px-2 sm:px-4 relative"
-        onClick={(e) => e.stopPropagation()}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        {/* Prev button (desktop) */}
-        {memories.length > 1 && (
-          <button
-            onClick={goPrev}
-            className="absolute left-2 sm:left-4 z-10 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
-            aria-label="Previous"
-          >
-            <ChevronLeft className="w-6 h-6" />
-          </button>
-        )}
-
-        {current.media_type === 'photo' ? (
-          <img
-            src={current.media_url}
-            alt=""
-            className="max-w-full max-h-full object-contain rounded-lg"
-            onClick={(e) => e.stopPropagation()}
-          />
-        ) : (
-          <video
-            src={current.media_url}
-            controls
-            autoPlay
-            playsInline
-            className="max-w-full max-h-full rounded-lg"
-            onClick={(e) => e.stopPropagation()}
-          />
-        )}
-
-        {/* Next button (desktop) */}
-        {memories.length > 1 && (
-          <button
-            onClick={goNext}
-            className="absolute right-2 sm:right-4 z-10 w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
-            aria-label="Next"
-          >
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        )}
-      </div>
-
-      {/* Bottom info */}
-      <div
-        className="p-4 text-white text-center safe-area-inset-bottom"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {current.location_name && (
-          <p className="text-sm font-medium text-gold-500">{current.location_name}</p>
-        )}
-        {current.caption && (
-          <p className="text-sm text-white/80 mt-1">{current.caption}</p>
-        )}
-        <p className="text-xs text-white/50 mt-1 italic">{formatDate(current.taken_at)}</p>
-      </div>
     </div>
   );
 }

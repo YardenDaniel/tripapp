@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calendar, Map, MessageSquare, Phone, Coins, Users } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPinned, MessageSquare, Phone, Coins, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatDate, daysBetween, cn } from '../lib/utils';
 import LoadingScreen from '../components/LoadingScreen';
@@ -13,7 +13,7 @@ import MembersTab from '../components/MembersTab';
 
 const TABS = [
   { id: 'itinerary', label: 'Itinerary', icon: Calendar },
-  { id: 'map', label: 'Map', icon: Map },
+  { id: 'map', label: 'Memory Map', icon: MapPinned },
   { id: 'chat', label: 'Assistant', icon: MessageSquare },
   { id: 'currency', label: 'Currency', icon: Coins },
   { id: 'emergency', label: 'Emergency', icon: Phone },
@@ -56,7 +56,7 @@ export default function TripPage() {
 
   return (
     <div className="min-h-screen pb-24 grain">
-      <header className="relative h-56 overflow-hidden">
+      <header className="relative h-44 overflow-hidden">
         {trip.cover_image_url ? (
           <img src={trip.cover_image_url} alt={trip.name} className="w-full h-full object-cover" />
         ) : (
@@ -72,12 +72,12 @@ export default function TripPage() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
 
-        <div className="absolute bottom-0 inset-x-0 p-5">
+        <div className="absolute bottom-0 inset-x-0 p-4">
           <p className="font-accent italic text-gold-500 text-sm mb-1">{trip.country}</p>
           <h1 className="font-display text-3xl font-bold text-ivory-50 leading-tight">
             {trip.name}
           </h1>
-          <p className="text-sm text-ivory-100/70 mt-2">
+          <p className="text-sm text-ivory-100/70 mt-1">
             {formatDate(trip.start_date)} – {formatDate(trip.end_date)} · {totalDays} days
           </p>
         </div>
