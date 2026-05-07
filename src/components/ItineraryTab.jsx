@@ -34,9 +34,18 @@ export default function ItineraryTab({ trip }) {
         .order('day_number');
 
       if (error) throw error;
-      setDays(data || []);
-      if (data?.[0]) setExpandedDay(data[0].id);
-      await loadActivities();
+      const dayList = data || [];
+      setDays(dayList);
+      const acts = await loadActivities();
+
+      // Auto-expand the first day only if this looks like a brand-new trip
+      // (no custom day titles AND no activities yet). On any trip that has
+      // already been edited, all days start closed.
+      const hasAnyTitle = dayList.some((d) => d.title);
+      const hasAnyActivity = acts.length > 0;
+      if (!hasAnyTitle && !hasAnyActivity && dayList[0]) {
+        setExpandedDay(dayList[0].id);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -53,7 +62,7 @@ export default function ItineraryTab({ trip }) {
 
     if (error) {
       console.error(error);
-      return;
+      return [];
     }
 
     const grouped = {};
@@ -62,6 +71,7 @@ export default function ItineraryTab({ trip }) {
       grouped[act.day_id].push(act);
     });
     setActivities(grouped);
+    return data;
   }
 
   if (loading) {
@@ -78,6 +88,21 @@ export default function ItineraryTab({ trip }) {
     setDays((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
   }
 
+  function handleActivityAdded(activity) {
+    setActivities((prev) => {
+      const existing = prev[activity.day_id] || [];
+      if (existing.some((a) => a.id === activity.id)) return prev;
+      return { ...prev, [activity.day_id]: [...existing, activity] };
+    });
+  }
+
+  function handleActivityDeleted(activityId, dayId) {
+    setActivities((prev) => {
+      const existing = prev[dayId] || [];
+      return { ...prev, [dayId]: existing.filter((a) => a.id !== activityId) };
+    });
+  }
+
   return (
     <div className="space-y-3 animate-fade-in">
       {days.map((day) => (
@@ -89,6 +114,7 @@ export default function ItineraryTab({ trip }) {
           onToggle={() => setExpandedDay(expandedDay === day.id ? null : day.id)}
           onAddActivity={() => setShowAddActivity(day.id)}
           onDayUpdate={handleDayUpdate}
+          onActivityDeleted={handleActivityDeleted}
         />
       ))}
 
@@ -97,13 +123,14 @@ export default function ItineraryTab({ trip }) {
           dayId={showAddActivity}
           tripId={trip.id}
           onClose={() => setShowAddActivity(null)}
+          onAdded={handleActivityAdded}
         />
       )}
     </div>
   );
 }
 
-function DayCard({ day, activities, isExpanded, onToggle, onAddActivity, onDayUpdate }) {
+function DayCard({ day, activities, isExpanded, onToggle, onAddActivity, onDayUpdate, onActivityDeleted }) {
   const dayDate = new Date(day.date);
   const isToday = dayDate.toDateString() === new Date().toDateString();
   const isPast = dayDate < new Date() && !isToday;
@@ -266,7 +293,11 @@ function DayCard({ day, activities, isExpanded, onToggle, onAddActivity, onDayUp
           ) : (
             <div className="space-y-2">
               {activities.map((activity) => (
-                <ActivityRow key={activity.id} activity={activity} />
+                <ActivityRow
+                  key={activity.id}
+                  activity={activity}
+                  onDeleted={onActivityDeleted}
+                />
               ))}
             </div>
           )}
@@ -283,12 +314,17 @@ function DayCard({ day, activities, isExpanded, onToggle, onAddActivity, onDayUp
   );
 }
 
-function ActivityRow({ activity }) {
+function ActivityRow({ activity, onDeleted }) {
   const type = ACTIVITY_TYPES[activity.type] || ACTIVITY_TYPES.other;
 
   async function handleDelete() {
     if (!confirm('Delete this activity?')) return;
-    await supabase.from('activities').delete().eq('id', activity.id);
+    const { error } = await supabase.from('activities').delete().eq('id', activity.id);
+    if (error) {
+      alert('Could not delete: ' + error.message);
+      return;
+    }
+    onDeleted?.(activity.id, activity.day_id);
   }
 
   return (
@@ -326,7 +362,7 @@ function ActivityRow({ activity }) {
   );
 }
 
-function ActivityModal({ dayId, tripId, onClose }) {
+function ActivityModal({ dayId, tripId, onClose, onAdded }) {
   const [title, setTitle] = useState('');
   const [type, setType] = useState('attraction');
   const [startTime, setStartTime] = useState('');
@@ -339,17 +375,22 @@ function ActivityModal({ dayId, tripId, onClose }) {
     setSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase.from('activities').insert({
-        trip_id: tripId,
-        day_id: dayId,
-        title,
-        type,
-        start_time: startTime || null,
-        location_name: locationName || null,
-        notes: notes || null,
-        created_by: user.id,
-      });
+      const { data, error } = await supabase
+        .from('activities')
+        .insert({
+          trip_id: tripId,
+          day_id: dayId,
+          title,
+          type,
+          start_time: startTime || null,
+          location_name: locationName || null,
+          notes: notes || null,
+          created_by: user.id,
+        })
+        .select()
+        .single();
       if (error) throw error;
+      onAdded?.(data);
       onClose();
     } catch (err) {
       alert(err.message);

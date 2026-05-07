@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Calendar, MapPinned, MessageSquare, Phone, Coins, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatDate, cn } from '../lib/utils';
@@ -24,14 +24,53 @@ const TABS = [
   { id: 'members', label: 'Travelers', icon: Users },
 ];
 
+const TAB_IDS = TABS.map((t) => t.id);
+const DEFAULT_TAB = 'itinerary';
+
 export default function TripPage() {
   const { tripId } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const activeTab = TAB_IDS.includes(tabFromUrl) ? tabFromUrl : DEFAULT_TAB;
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('itinerary');
   const [editOpen, setEditOpen] = useState(false);
+  // Tabs stay mounted once visited so switching doesn't unmount and refetch.
+  // Reduces layout reflow and preserves scroll/state inside each tab.
+  const [visitedTabs, setVisitedTabs] = useState(() => new Set([activeTab]));
   const coverEditRef = useRef(null);
+
+  function handleSelectTab(id) {
+    // Mark visited synchronously so the new tab renders in the SAME frame
+    // as the URL update — avoids an empty-main render between activeTab
+    // changing and the useEffect adding it to visitedTabs.
+    setVisitedTabs((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', id);
+        return next;
+      },
+      { replace: true },
+    );
+  }
+
+  // Backup: handles URL-driven tab changes (browser back/forward, deep links)
+  // that bypass handleSelectTab.
+  useEffect(() => {
+    setVisitedTabs((prev) => {
+      if (prev.has(activeTab)) return prev;
+      const next = new Set(prev);
+      next.add(activeTab);
+      return next;
+    });
+  }, [activeTab]);
 
   function handleMenuAction(action) {
     if (action === 'cover') {
@@ -83,7 +122,7 @@ export default function TripPage() {
           imageUrl={trip.cover_image_url}
           onFileSelected={() => {}}
           hideCamera
-          className="h-44"
+          className="h-64"
         >
           <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/40 to-ink-900/60 pointer-events-none" />
 
@@ -133,7 +172,7 @@ export default function TripPage() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleSelectTab(tab.id)}
                   className={cn(
                     'flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all duration-200 min-w-[80px]',
                     isActive
@@ -150,13 +189,37 @@ export default function TripPage() {
         </div>
       </div>
 
-      <main className="max-w-2xl mx-auto px-5 pt-6">
-        {activeTab === 'itinerary' && <ItineraryTab trip={trip} />}
-        {activeTab === 'map' && <MemoriesMapTab trip={trip} />}
-        {activeTab === 'chat' && <ChatTab trip={trip} />}
-        {activeTab === 'currency' && <CurrencyTab trip={trip} />}
-        {activeTab === 'emergency' && <EmergencyTab trip={trip} />}
-        {activeTab === 'members' && <MembersTab trip={trip} />}
+      <main className="max-w-2xl mx-auto px-5 pt-6 min-h-[calc(100vh-280px)]">
+        {visitedTabs.has('itinerary') && (
+          <div className={activeTab === 'itinerary' ? '' : 'hidden'}>
+            <ItineraryTab trip={trip} />
+          </div>
+        )}
+        {visitedTabs.has('map') && (
+          <div className={activeTab === 'map' ? '' : 'hidden'}>
+            <MemoriesMapTab trip={trip} />
+          </div>
+        )}
+        {visitedTabs.has('chat') && (
+          <div className={activeTab === 'chat' ? '' : 'hidden'}>
+            <ChatTab trip={trip} />
+          </div>
+        )}
+        {visitedTabs.has('currency') && (
+          <div className={activeTab === 'currency' ? '' : 'hidden'}>
+            <CurrencyTab trip={trip} />
+          </div>
+        )}
+        {visitedTabs.has('emergency') && (
+          <div className={activeTab === 'emergency' ? '' : 'hidden'}>
+            <EmergencyTab trip={trip} />
+          </div>
+        )}
+        {visitedTabs.has('members') && (
+          <div className={activeTab === 'members' ? '' : 'hidden'}>
+            <MembersTab trip={trip} />
+          </div>
+        )}
       </main>
     </div>
   );
