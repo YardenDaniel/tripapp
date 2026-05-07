@@ -200,7 +200,7 @@ export default function EditTripModal({ trip, open, onClose, onUpdated, onDelete
               type="button"
               onClick={handleDelete}
               disabled={saving || deleting}
-              className="w-full flex items-center justify-center gap-2 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-2 text-sm text-coral-700 hover:text-coral-800 hover:bg-coral-50 rounded-lg transition-colors disabled:opacity-50"
             >
               {deleting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />

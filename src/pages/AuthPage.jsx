@@ -40,9 +40,9 @@ export default function AuthPage() {
         <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <pattern id="vietnamese-pattern" x="0" y="0" width="60" height="60" patternUnits="userSpaceOnUse">
-              <circle cx="30" cy="30" r="1" fill="#D4AF37" />
-              <circle cx="0" cy="0" r="0.5" fill="#D4AF37" />
-              <circle cx="60" cy="60" r="0.5" fill="#D4AF37" />
+              <circle cx="30" cy="30" r="1" fill="#f97316" />
+              <circle cx="0" cy="0" r="0.5" fill="#f97316" />
+              <circle cx="60" cy="60" r="0.5" fill="#f97316" />
             </pattern>
           </defs>
           <rect width="100%" height="100%" fill="url(#vietnamese-pattern)" />
@@ -64,15 +64,15 @@ export default function AuthPage() {
           </div>
 
           <div className="card-warm ornamental-border">
-            <div className="flex bg-ink-900/60 rounded-xl p-1 mb-6">
+            <div className="flex bg-surface-100 border border-surface-200 rounded-xl p-1 mb-6">
               <button
                 type="button"
                 onClick={() => { setMode('signin'); setError(''); setSuccess(''); }}
                 className={cn(
                   'flex-1 py-2.5 rounded-lg font-medium transition-all duration-300',
                   mode === 'signin'
-                    ? 'bg-gradient-teal text-cream-50 shadow-teal'
-                    : 'text-cream-100/60 hover:text-cream-100'
+                    ? 'bg-gradient-teal text-white shadow-teal'
+                    : 'text-sage-600 hover:text-ink-900'
                 )}
               >
                 Sign In
@@ -83,8 +83,8 @@ export default function AuthPage() {
                 className={cn(
                   'flex-1 py-2.5 rounded-lg font-medium transition-all duration-300',
                   mode === 'signup'
-                    ? 'bg-gradient-teal text-cream-50 shadow-teal'
-                    : 'text-cream-100/60 hover:text-cream-100'
+                    ? 'bg-gradient-teal text-white shadow-teal'
+                    : 'text-sage-600 hover:text-ink-900'
                 )}
               >
                 Sign Up
@@ -94,7 +94,7 @@ export default function AuthPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               {mode === 'signup' && (
                 <div className="animate-fade-in">
-                  <label className="block text-sm font-medium text-cream-100/80 mb-2">Full Name</label>
+                  <label className="block text-sm font-medium text-sage-700 mb-2">Full Name</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
                     <input
@@ -110,7 +110,7 @@ export default function AuthPage() {
               )}
 
               <div>
-                <label className="block text-sm font-medium text-cream-100/80 mb-2">Email</label>
+                <label className="block text-sm font-medium text-sage-700 mb-2">Email</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
                   <input
@@ -125,7 +125,7 @@ export default function AuthPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-cream-100/80 mb-2">Password</label>
+                <label className="block text-sm font-medium text-sage-700 mb-2">Password</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
                   <input
@@ -141,13 +141,13 @@ export default function AuthPage() {
               </div>
 
               {error && (
-                <div className="p-3 bg-teal-900/40 border border-teal-700/40 rounded-lg text-sm text-teal-200 animate-fade-in">
+                <div className="p-3 bg-coral-100 border border-coral-300 rounded-lg text-sm text-coral-700 animate-fade-in">
                   {error}
                 </div>
               )}
 
               {success && (
-                <div className="p-3 bg-sage-700/20 border border-sage-500/40 rounded-lg text-sm text-sage-50 animate-fade-in">
+                <div className="p-3 bg-teal-100 border border-teal-300 rounded-lg text-sm text-teal-800 animate-fade-in">
                   {success}
                 </div>
               )}
@@ -169,7 +169,7 @@ export default function AuthPage() {
             </form>
           </div>
 
-          <p className="text-center text-xs text-cream-100/40 mt-8">
+          <p className="text-center text-xs text-sage-500 mt-8">
             "A journey of a thousand miles begins with a single step" — Lao Tzu
           </p>
         </div>

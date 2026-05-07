@@ -12,7 +12,7 @@ export default function LoadingScreen({ message = 'Loading...' }) {
           <span className="w-1.5 h-1.5 rounded-full bg-coral-500 animate-bounce" style={{ animationDelay: '150ms' }} />
           <span className="w-1.5 h-1.5 rounded-full bg-coral-500 animate-bounce" style={{ animationDelay: '300ms' }} />
         </div>
-        <p className="text-cream-100/70 text-sm">{message}</p>
+        <p className="text-sage-600 text-sm">{message}</p>
       </div>
     </div>
   );

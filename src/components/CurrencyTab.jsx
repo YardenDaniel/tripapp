@@ -77,7 +77,7 @@ export default function CurrencyTab({ trip }) {
         </div>
 
         <div className="mb-3">
-          <label className="block text-xs text-cream-100/60 mb-1.5">From</label>
+          <label className="block text-xs text-sage-600 mb-1.5">From</label>
           <div className="flex gap-2">
             <select
               value={from}
@@ -110,7 +110,7 @@ export default function CurrencyTab({ trip }) {
         </div>
 
         <div className="mt-3">
-          <label className="block text-xs text-cream-100/60 mb-1.5">To</label>
+          <label className="block text-xs text-sage-600 mb-1.5">To</label>
           <div className="flex gap-2">
             <select
               value={to}
@@ -136,7 +136,7 @@ export default function CurrencyTab({ trip }) {
         </div>
 
         {rates && !loading && (
-          <div className="mt-4 pt-4 border-t border-teal-900/30 flex items-center gap-2 text-xs text-cream-100/60">
+          <div className="mt-4 pt-4 border-t border-surface-200 flex items-center gap-2 text-xs text-sage-600">
             <TrendingUp className="w-4 h-4 text-coral-500/60" />
             <span className="font-mono">
               1 {to} = {reverseRate.toLocaleString('en-US', { maximumFractionDigits: 4 })} {from}
@@ -145,7 +145,7 @@ export default function CurrencyTab({ trip }) {
         )}
 
         {error && (
-          <div className="mt-4 p-3 bg-teal-900/40 border border-teal-700/40 rounded-lg text-xs text-teal-200">
+          <div className="mt-4 p-3 bg-coral-100 border border-coral-300 rounded-lg text-xs text-coral-700">
             {error}
           </div>
         )}
@@ -159,9 +159,9 @@ export default function CurrencyTab({ trip }) {
               <button
                 key={amt}
                 onClick={() => setAmount(String(amt))}
-                className="p-3 bg-ink-900/40 hover:bg-ink-800 border border-teal-900/30 hover:border-coral-500/30 rounded-xl transition-all text-left"
+                className="p-3 bg-surface-100 hover:bg-surface-200 border border-surface-200 hover:border-coral-500/40 rounded-xl transition-all text-left"
               >
-                <div className="text-sm font-mono text-cream-100">
+                <div className="text-sm font-mono text-ink-900">
                   ₫ {amt.toLocaleString()}
                 </div>
                 <div className="text-xs text-coral-500 font-mono mt-0.5">
@@ -175,7 +175,7 @@ export default function CurrencyTab({ trip }) {
 
       <div className="card-warm bg-gradient-to-br from-coral-500/5 to-transparent">
         <h3 className="font-display font-semibold mb-2 text-coral-500">💡 Local Tip</h3>
-        <p className="text-sm text-cream-100/80 leading-relaxed">
+        <p className="text-sm text-sage-700 leading-relaxed">
           In Vietnam, dong banknotes are easy to confuse: 100,000 ₫ ≈ $4 USD. When someone says "100K", they mean 100,000 dong.
           Always ask to see the price written down before agreeing.
         </p>
