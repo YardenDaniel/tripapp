@@ -762,7 +762,7 @@ function PolaroidCard({
               onKeyDown={handleKeyDown}
               placeholder="Write a note..."
               rows={3}
-              className="w-full text-sm font-accent text-ink-900 bg-gray-50 border border-gray-300 rounded p-1.5 resize-none focus:outline-none focus:border-coral-600"
+              className="w-full text-sm text-ink-900 bg-gray-50 border border-gray-300 rounded p-1.5 resize-none focus:outline-none focus:border-coral-600"
             />
             <div className="flex items-center gap-1.5 mt-1">
               <button
@@ -787,7 +787,7 @@ function PolaroidCard({
           <div className="flex items-start gap-1 pt-1">
             <p
               onDoubleClick={startEdit}
-              className={`font-accent ${s.captionText} text-ink-900 leading-snug flex-1`}
+              className={`${s.captionText} text-ink-900 leading-snug flex-1`}
             >
               {memory.caption}
             </p>
@@ -1852,13 +1852,6 @@ export default function MemoriesMapTab({ trip }) {
         />
       </div>
 
-      <div className="mt-4 flex items-center justify-between text-sm">
-        <p className="text-cream-100/60">
-          <span className="text-coral-500 font-bold">{memories.length}</span>{' '}
-          {memories.length === 1 ? 'memory' : 'memories'} on the map
-        </p>
-      </div>
-
       {memories.length > 0 && (
         <section className="mt-6">
           <button
@@ -1875,8 +1868,8 @@ export default function MemoriesMapTab({ trip }) {
                 <Images className="w-5 h-5 text-coral-500" />
               </div>
               <div className="text-left">
-                <p className="font-display text-base font-semibold text-cream-50">All memories</p>
-                <p className="text-xs text-cream-100/60">
+                <p className="font-display text-base font-semibold text-ink-900">All memories</p>
+                <p className="text-xs text-sage-600">
                   {memories.length} {memories.length === 1 ? 'memory' : 'memories'} from this trip
                 </p>
               </div>

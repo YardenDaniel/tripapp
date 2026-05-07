@@ -141,7 +141,7 @@ function TripCard({ trip, delay = 0 }) {
             <h3 className="font-display text-xl font-bold text-ink-900 leading-tight">
               {trip.name}
             </h3>
-            <span className="text-xs text-coral-600 font-accent italic mt-1 whitespace-nowrap">
+            <span className="text-xs text-coral-600 mt-1 whitespace-nowrap">
               {trip.country}
             </span>
           </div>

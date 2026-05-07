@@ -52,7 +52,7 @@ function ComingSoonScreen() {
         </ul>
       </div>
 
-      <p className="text-xs text-cream-100/40 mt-6 font-accent italic">
+      <p className="text-xs text-cream-100/40 mt-6">
         Will activate automatically when API key is added
       </p>
     </div>
@@ -209,7 +209,7 @@ Respond in English, concisely (up to 4 sentences when possible), in a friendly a
         {sending && (
           <div className="flex items-center gap-2 text-coral-500/60 text-sm">
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="font-accent italic">Thinking...</span>
+            <span className="italic">Thinking...</span>
           </div>
         )}
         <div ref={messagesEndRef} />
@@ -250,7 +250,7 @@ function MessageBubble({ message }) {
         )}
       >
         {!isUser && (
-          <div className="flex items-center gap-1.5 mb-1 text-coral-500 text-xs font-accent italic">
+          <div className="flex items-center gap-1.5 mb-1 text-coral-500 text-xs">
             <Sparkles className="w-3 h-3" />
             <span>Assistant</span>
           </div>

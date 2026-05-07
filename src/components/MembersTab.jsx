@@ -47,7 +47,7 @@ export default function MembersTab({ trip }) {
     <div className="animate-fade-in space-y-4">
       <div className="card-warm ornamental-border">
         <h2 className="font-display text-lg font-bold mb-1">Trip Travelers</h2>
-        <p className="text-xs text-coral-500/70 font-accent italic">
+        <p className="text-xs text-coral-500/70">
           Everyone with access sees everything in real time
         </p>
       </div>

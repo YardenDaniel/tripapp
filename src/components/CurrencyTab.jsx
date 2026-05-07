@@ -62,7 +62,7 @@ export default function CurrencyTab({ trip }) {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h2 className="font-display text-xl font-bold">Currency Converter</h2>
-            <p className="text-xs text-coral-500/70 font-accent italic mt-1">
+            <p className="text-xs text-coral-500/70 mt-1">
               Live exchange rates
             </p>
           </div>

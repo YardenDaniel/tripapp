@@ -76,7 +76,7 @@ export default function NewTripPage() {
 
       <main className="max-w-2xl mx-auto px-5 pt-8">
         <div className="mb-8 animate-fade-in">
-          <p className="font-accent italic text-coral-500/80 text-lg">Let's plan your</p>
+          <p className="text-coral-500/80 text-lg">Let's plan your</p>
           <h1 className="font-display text-4xl font-bold mt-1">Next Adventure</h1>
           <div className="coral-divider w-24 mt-3" />
         </div>

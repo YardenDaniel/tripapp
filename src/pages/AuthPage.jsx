@@ -57,7 +57,7 @@ export default function AuthPage() {
             <div className="flex justify-center mb-6">
               <Logo size="xl" />
             </div>
-            <p className="font-accent italic text-coral-500/80 text-lg">
+            <p className="text-coral-500/80 text-lg">
               {mode === 'signin' ? 'Welcome back' : 'Welcome aboard'}
             </p>
             <div className="coral-divider w-32 mx-auto mt-3" />
@@ -169,7 +169,7 @@ export default function AuthPage() {
             </form>
           </div>
 
-          <p className="text-center text-xs text-cream-100/40 mt-8 font-accent italic">
+          <p className="text-center text-xs text-cream-100/40 mt-8">
             "A journey of a thousand miles begins with a single step" — Lao Tzu
           </p>
         </div>

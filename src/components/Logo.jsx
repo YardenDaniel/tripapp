@@ -39,7 +39,7 @@ export default function Logo({ className, size = 'md' }) {
           Trip<span className="text-coral-500">App</span>
         </span>
         {(size === 'lg' || size === 'xl') && (
-          <span className="font-accent italic text-coral-500/70 text-sm mt-1">Your Personal Travel Companion</span>
+          <span className="text-coral-500/70 text-sm mt-1">Your Personal Travel Companion</span>
         )}
       </div>
     </div>

@@ -12,7 +12,7 @@ import CurrencyTab from '../components/CurrencyTab';
 import MembersTab from '../components/MembersTab';
 
 const TABS = [
-  { id: 'itinerary', label: 'Itinerary', icon: Calendar },
+  { id: 'itinerary', label: 'Schedule', icon: Calendar },
   { id: 'map', label: 'Memory Map', icon: MapPinned },
   { id: 'chat', label: 'Assistant', icon: MessageSquare },
   { id: 'currency', label: 'Currency', icon: Coins },

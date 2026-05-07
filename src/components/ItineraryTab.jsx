@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, MapPin, X, Trash2, ChevronDown } from 'lucide-react';
+import { Plus, MapPin, X, Trash2, ChevronDown, Pencil } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatDate, formatTime, ACTIVITY_TYPES, cn } from '../lib/utils';
 
@@ -74,6 +74,10 @@ export default function ItineraryTab({ trip }) {
     );
   }
 
+  function handleDayUpdate(updated) {
+    setDays((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+  }
+
   return (
     <div className="space-y-3 animate-fade-in">
       {days.map((day) => (
@@ -84,6 +88,7 @@ export default function ItineraryTab({ trip }) {
           isExpanded={expandedDay === day.id}
           onToggle={() => setExpandedDay(expandedDay === day.id ? null : day.id)}
           onAddActivity={() => setShowAddActivity(day.id)}
+          onDayUpdate={handleDayUpdate}
         />
       ))}
 
@@ -98,10 +103,68 @@ export default function ItineraryTab({ trip }) {
   );
 }
 
-function DayCard({ day, activities, isExpanded, onToggle, onAddActivity }) {
+function DayCard({ day, activities, isExpanded, onToggle, onAddActivity, onDayUpdate }) {
   const dayDate = new Date(day.date);
   const isToday = dayDate.toDateString() === new Date().toDateString();
   const isPast = dayDate < new Date() && !isToday;
+  const monthShort = dayDate.toLocaleString('en-US', { month: 'short' });
+  const dayNum = dayDate.getDate();
+  const weekday = dayDate.toLocaleString('en-US', { weekday: 'long' });
+  const defaultTitle = `Day ${day.day_number} · ${weekday}`;
+
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const startEdit = (e) => {
+    e.stopPropagation();
+    setDraft(day.title || '');
+    setEditing(true);
+  };
+
+  const cancelEdit = (e) => {
+    e?.stopPropagation();
+    setEditing(false);
+    setDraft('');
+  };
+
+  const saveEdit = async (e) => {
+    e?.stopPropagation();
+    const trimmed = draft.trim();
+    const newTitle = trimmed === '' ? null : trimmed;
+    if (newTitle === (day.title ?? null)) {
+      cancelEdit();
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from('itinerary_days')
+      .update({ title: newTitle })
+      .eq('id', day.id);
+    setSaving(false);
+    if (error) {
+      alert('Could not save: ' + error.message);
+      return;
+    }
+    onDayUpdate?.({ ...day, title: newTitle });
+    setEditing(false);
+    setDraft('');
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      saveEdit(e);
+    } else if (e.key === 'Escape') {
+      e.stopPropagation();
+      cancelEdit(e);
+    }
+  };
+
+  const handleHeaderClick = () => {
+    if (editing) return;
+    onToggle();
+  };
 
   return (
     <div className={cn(
@@ -109,37 +172,95 @@ function DayCard({ day, activities, isExpanded, onToggle, onAddActivity }) {
       isToday && 'ring-2 ring-coral-500/40',
       isPast && 'opacity-70'
     )}>
-      <button onClick={onToggle} className="w-full flex items-center justify-between text-left">
-        <div className="flex items-center gap-4">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={handleHeaderClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleHeaderClick();
+          }
+        }}
+        className="w-full flex items-center justify-between text-left cursor-pointer"
+      >
+        <div className="flex items-center gap-4 flex-1 min-w-0">
           <div className={cn(
-            'w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-display',
+            'w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-display flex-shrink-0',
             isToday
-              ? 'bg-gradient-coral text-white'
-              : 'bg-teal-100 text-teal-800 border border-teal-200'
+              ? 'bg-gradient-coral text-white shadow-coral'
+              : 'bg-coral-100 text-coral-700 border border-coral-200'
           )}>
-            <span className="text-xs font-accent italic leading-none">Day</span>
-            <span className="text-xl font-bold leading-none">{day.day_number}</span>
+            <span className="text-[10px] leading-none uppercase tracking-wide">
+              {monthShort}
+            </span>
+            <span className="text-xl font-bold leading-none mt-0.5">{dayNum}</span>
           </div>
-          <div className="text-left">
-            <p className="font-display text-lg font-semibold text-ink-900">
-              {day.title || formatDate(day.date, { weekday: 'long', day: 'numeric', month: 'long' })}
-            </p>
+          <div className="flex-1 min-w-0">
+            {editing ? (
+              <div
+                className="flex items-center gap-1.5"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <input
+                  type="text"
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={defaultTitle}
+                  autoFocus
+                  className="flex-1 min-w-0 font-display text-base font-semibold text-ink-900 bg-surface-100 border border-coral-300 rounded px-2 py-1 focus:outline-none focus:border-coral-500"
+                />
+                <button
+                  type="button"
+                  onClick={saveEdit}
+                  disabled={saving}
+                  className="px-2.5 py-1 text-xs bg-coral-500 hover:bg-coral-600 text-white rounded disabled:opacity-50 flex-shrink-0"
+                >
+                  {saving ? '...' : 'Save'}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  disabled={saving}
+                  className="px-2 py-1 text-xs text-sage-600 hover:text-ink-900 flex-shrink-0"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-start gap-1">
+                <p className="font-display text-lg font-semibold text-ink-900 flex-1 min-w-0 truncate">
+                  {day.title || defaultTitle}
+                </p>
+                <button
+                  type="button"
+                  onClick={startEdit}
+                  className="p-1 text-sage-500 hover:text-ink-900 hover:bg-surface-200 rounded transition-colors flex-shrink-0"
+                  aria-label="Edit day title"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
             <p className="text-xs text-sage-600 mt-0.5">
               {activities.length} {activities.length === 1 ? 'activity' : 'activities'}
               {isToday && <span className="text-coral-600 ml-2">· Today</span>}
             </p>
           </div>
         </div>
-        <ChevronDown className={cn(
-          'w-5 h-5 text-sage-500 transition-transform',
-          isExpanded && 'rotate-180'
-        )} />
-      </button>
+        {!editing && (
+          <ChevronDown className={cn(
+            'w-5 h-5 text-sage-500 transition-transform flex-shrink-0',
+            isExpanded && 'rotate-180'
+          )} />
+        )}
+      </div>
 
       {isExpanded && (
         <div className="mt-4 pt-4 border-t border-surface-200 animate-fade-in">
           {activities.length === 0 ? (
-            <p className="text-sm text-sage-400 text-center py-4 font-accent italic">
+            <p className="text-sm text-sage-400 text-center py-4">
               No activities yet for this day
             </p>
           ) : (
