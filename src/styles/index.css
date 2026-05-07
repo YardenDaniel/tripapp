@@ -3,14 +3,6 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --color-teal: #14b8a6;
-    --color-coral: #f97316;
-    --color-sage: #475569;
-    --color-cream: #fffbf0;
-    --color-ink: #1a0a0a;
-  }
-
   * {
     -webkit-tap-highlight-color: transparent;
   }

@@ -100,7 +100,7 @@ function MemberCard({ member, isOwner, currentUserId, onRemove }) {
 
   return (
     <div className="card-warm flex items-center gap-3 group">
-      <div className="w-12 h-12 rounded-full bg-gradient-teal flex items-center justify-center font-display font-bold text-cream-50 shrink-0 border border-coral-500/30">
+      <div className="w-12 h-12 rounded-full bg-gradient-teal flex items-center justify-center font-display font-bold text-white shrink-0 border border-coral-500/30">
         {profile.avatar_url ? (
           <img src={profile.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
         ) : (
@@ -109,7 +109,7 @@ function MemberCard({ member, isOwner, currentUserId, onRemove }) {
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="font-medium text-cream-50 truncate">
+          <h3 className="font-medium text-ink-900 truncate">
             {profile.full_name || profile.email}
             {isCurrentUser && <span className="text-xs text-coral-500/70 ml-1">(you)</span>}
           </h3>
@@ -117,12 +117,12 @@ function MemberCard({ member, isOwner, currentUserId, onRemove }) {
             <Crown className="w-4 h-4 text-coral-500" aria-label="Owner" />
           )}
         </div>
-        <p className="text-xs text-cream-100/50 truncate">{profile.email}</p>
+        <p className="text-xs text-sage-600 truncate">{profile.email}</p>
       </div>
       {isOwner && !isOwnerRole && (
         <button
           onClick={() => onRemove(member.id)}
-          className="opacity-0 group-hover:opacity-100 p-2 text-teal-400 hover:bg-teal-900/40 rounded-lg transition-all"
+          className="opacity-0 group-hover:opacity-100 p-2 text-coral-600 hover:bg-coral-50 rounded-lg transition-all"
           aria-label="Remove"
         >
           <Trash2 className="w-4 h-4" />
@@ -189,7 +189,7 @@ function InviteModal({ trip, existingEmails, onClose }) {
           </button>
         </div>
 
-        <p className="text-sm text-cream-100/70 mb-4 leading-relaxed">
+        <p className="text-sm text-sage-600 mb-4 leading-relaxed">
           Add a traveler to your trip. They'll see everything in real time.
           <br />
           <span className="text-xs text-coral-500/70">
@@ -199,7 +199,7 @@ function InviteModal({ trip, existingEmails, onClose }) {
 
         <form onSubmit={handleInvite} className="space-y-3">
           <div>
-            <label className="block text-sm font-medium text-cream-100/80 mb-2">Email</label>
+            <label className="block text-sm font-medium text-sage-700 mb-2">Email</label>
             <input
               type="email"
               value={email}
@@ -212,12 +212,12 @@ function InviteModal({ trip, existingEmails, onClose }) {
           </div>
 
           {error && (
-            <div className="p-3 bg-teal-900/40 border border-teal-700/40 rounded-lg text-sm text-teal-200">
+            <div className="p-3 bg-coral-100 border border-coral-300 rounded-lg text-sm text-coral-700">
               {error}
             </div>
           )}
           {success && (
-            <div className="p-3 bg-sage-700/20 border border-sage-500/40 rounded-lg text-sm text-sage-50">
+            <div className="p-3 bg-teal-100 border border-teal-300 rounded-lg text-sm text-teal-800">
               {success}
             </div>
           )}

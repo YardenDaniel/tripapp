@@ -9,7 +9,7 @@ import TripPage from './pages/TripPage';
 export default function App() {
   const { user, loading } = useAuth();
 
-  if (loading) return <LoadingScreen message="מתחברת..." />;
+  if (loading) return <LoadingScreen message="Signing in..." />;
 
   if (!user) {
     return (

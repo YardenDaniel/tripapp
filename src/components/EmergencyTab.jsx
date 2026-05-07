@@ -46,12 +46,12 @@ export default function EmergencyTab({ trip }) {
 
   return (
     <div className="animate-fade-in space-y-4">
-      <div className="card-warm bg-gradient-to-br from-teal-900/40 to-transparent ornamental-border">
+      <div className="card-warm ornamental-border">
         <div className="flex items-center gap-3">
           <div className="text-3xl">🆘</div>
           <div>
-            <h2 className="font-display text-lg font-bold text-cream-50">In Case of Emergency</h2>
-            <p className="text-xs text-cream-100/60 mt-0.5">
+            <h2 className="font-display text-lg font-bold text-ink-900">In Case of Emergency</h2>
+            <p className="text-xs text-sage-600 mt-0.5">
               Tap a number to launch your phone dialer
             </p>
           </div>
@@ -89,19 +89,19 @@ function ContactCard({ contact, onDelete }) {
       href={`tel:${contact.number.replace(/\s/g, '')}`}
       className="card-warm flex items-center gap-4 hover:border-coral-500/30 transition-all group"
     >
-      <div className="w-12 h-12 rounded-xl bg-teal-900/60 flex items-center justify-center text-2xl shrink-0 border border-coral-500/20">
+      <div className="w-12 h-12 rounded-xl bg-surface-100 flex items-center justify-center text-2xl shrink-0 border border-coral-500/20">
         {EMERGENCY_TYPE_ICONS[contact.type] || '📞'}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <h3 className="font-medium text-cream-50 truncate">{contact.name}</h3>
+          <h3 className="font-medium text-ink-900 truncate">{contact.name}</h3>
           {contact.is_default && (
             <span className="text-[10px] px-1.5 py-0.5 bg-coral-500/20 text-coral-500 rounded">Official</span>
           )}
         </div>
         <p className="text-sm font-mono text-coral-500 mt-0.5">{contact.number}</p>
         {contact.description && (
-          <p className="text-xs text-cream-100/50 mt-0.5">{contact.description}</p>
+          <p className="text-xs text-sage-600 mt-0.5">{contact.description}</p>
         )}
       </div>
       <Phone className="w-5 h-5 text-coral-500/60 group-hover:text-coral-500 group-hover:scale-110 transition-all shrink-0" />
@@ -111,7 +111,7 @@ function ContactCard({ contact, onDelete }) {
             e.preventDefault();
             onDelete(contact.id);
           }}
-          className="opacity-0 group-hover:opacity-100 p-1.5 text-teal-400 hover:bg-teal-900/40 rounded-lg transition-all"
+          className="opacity-0 group-hover:opacity-100 p-1.5 text-coral-600 hover:bg-coral-50 rounded-lg transition-all"
         >
           <Trash2 className="w-4 h-4" />
         </button>
@@ -160,7 +160,7 @@ function AddContactModal({ trip, onClose }) {
 
         <form onSubmit={handleSave} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-cream-100/80 mb-2">Name</label>
+            <label className="block text-sm font-medium text-sage-700 mb-2">Name</label>
             <input
               type="text"
               value={name}
@@ -172,7 +172,7 @@ function AddContactModal({ trip, onClose }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-cream-100/80 mb-2">Phone Number</label>
+            <label className="block text-sm font-medium text-sage-700 mb-2">Phone Number</label>
             <input
               type="tel"
               value={number}
@@ -183,7 +183,7 @@ function AddContactModal({ trip, onClose }) {
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-cream-100/80 mb-2">Type</label>
+            <label className="block text-sm font-medium text-sage-700 mb-2">Type</label>
             <div className="grid grid-cols-3 gap-2">
               {Object.entries(TYPE_LABELS).map(([key, label]) => (
                 <button
@@ -193,8 +193,8 @@ function AddContactModal({ trip, onClose }) {
                   className={cn(
                     'p-2.5 rounded-xl border transition-all flex flex-col items-center gap-1',
                     type === key
-                      ? 'bg-gradient-teal border-coral-500/40'
-                      : 'bg-ink-800/40 border-teal-900/30 hover:border-coral-500/20'
+                      ? 'bg-gradient-teal text-white border-coral-500/40'
+                      : 'bg-surface-100 text-sage-700 border-surface-200 hover:border-coral-500/40 hover:bg-surface-200'
                   )}
                 >
                   <span className="text-xl">{EMERGENCY_TYPE_ICONS[key]}</span>
@@ -204,7 +204,7 @@ function AddContactModal({ trip, onClose }) {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-cream-100/80 mb-2">Description (Optional)</label>
+            <label className="block text-sm font-medium text-sage-700 mb-2">Description (Optional)</label>
             <input
               type="text"
               value={description}

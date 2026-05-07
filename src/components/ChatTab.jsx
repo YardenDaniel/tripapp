@@ -24,7 +24,7 @@ function ComingSoonScreen() {
 
       <h3 className="font-display text-2xl font-bold mb-3">Smart Assistant Coming Soon</h3>
 
-      <p className="text-sm text-cream-100/70 max-w-sm leading-relaxed mb-6">
+      <p className="text-sm text-sage-600 max-w-sm leading-relaxed mb-6">
         Your AI travel assistant will recommend restaurants, attractions, hidden gems, and help you plan in real time.
       </p>
 
@@ -32,7 +32,7 @@ function ComingSoonScreen() {
         <h4 className="font-display font-semibold text-coral-500 mb-2 text-sm">
           ✨ What it will do
         </h4>
-        <ul className="space-y-2 text-xs text-cream-100/70">
+        <ul className="space-y-2 text-xs text-sage-600">
           <li className="flex items-start gap-2">
             <span className="text-coral-500 mt-0.5">•</span>
             <span>Recommend restaurants based on your current location</span>
@@ -52,7 +52,7 @@ function ComingSoonScreen() {
         </ul>
       </div>
 
-      <p className="text-xs text-cream-100/40 mt-6">
+      <p className="text-xs text-sage-500 mt-6">
         Will activate automatically when API key is added
       </p>
     </div>
@@ -188,7 +188,7 @@ Respond in English, concisely (up to 4 sentences when possible), in a friendly a
               <Sparkles className="w-8 h-8 text-ink-900" />
             </div>
             <h3 className="font-display text-xl font-bold mb-2">Your Smart Assistant</h3>
-            <p className="text-sm text-cream-100/60 max-w-xs mx-auto leading-relaxed mb-6">
+            <p className="text-sm text-sage-600 max-w-xs mx-auto leading-relaxed mb-6">
               Ask me anything about your trip - restaurants, transport, attractions, or local tips.
             </p>
             <div className="space-y-2 max-w-sm mx-auto">
@@ -196,7 +196,7 @@ Respond in English, concisely (up to 4 sentences when possible), in a friendly a
                 <button
                   key={s}
                   onClick={() => setInput(s)}
-                  className="w-full text-left px-4 py-2.5 bg-ink-800/40 border border-teal-900/30 rounded-xl text-sm text-cream-100/80 hover:border-coral-500/30 transition-all"
+                  className="w-full text-left px-4 py-2.5 bg-surface-100 border border-surface-200 rounded-xl text-sm text-sage-700 hover:border-coral-500/40 hover:bg-surface-200 transition-all"
                 >
                   {s}
                 </button>
@@ -215,7 +215,7 @@ Respond in English, concisely (up to 4 sentences when possible), in a friendly a
         <div ref={messagesEndRef} />
       </div>
 
-      <form onSubmit={sendMessage} className="flex gap-2 pt-3 border-t border-teal-900/30">
+      <form onSubmit={sendMessage} className="flex gap-2 pt-3 border-t border-surface-200">
         <input
           type="text"
           value={input}
@@ -245,8 +245,8 @@ function MessageBubble({ message }) {
         className={cn(
           'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
           isUser
-            ? 'bg-gradient-teal text-cream-50 rounded-br-md'
-            : 'bg-ink-800/80 text-cream-100 border border-coral-500/20 rounded-bl-md'
+            ? 'bg-gradient-teal text-white rounded-br-md'
+            : 'bg-surface-50 text-ink-900 border border-surface-200 rounded-bl-md'
         )}
       >
         {!isUser && (
