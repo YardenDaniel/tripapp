@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calendar, MapPinned, MessageSquare, Phone, Coins, Users } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatDate, cn } from '../lib/utils';
 import LoadingScreen from '../components/LoadingScreen';
+import CoverImageUpload from '../components/CoverImageUpload';
+import TripActionsMenu from '../components/TripActionsMenu';
+import EditTripModal from '../components/EditTripModal';
+import CoverEditFlow from '../components/CoverEditFlow';
 import ItineraryTab from '../components/ItineraryTab';
 import MemoriesMapTab from '../components/MemoriesMapTab';
 import ChatTab from '../components/ChatTab';
@@ -26,6 +30,24 @@ export default function TripPage() {
   const [trip, setTrip] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('itinerary');
+  const [editOpen, setEditOpen] = useState(false);
+  const coverEditRef = useRef(null);
+
+  function handleMenuAction(action) {
+    if (action === 'cover') {
+      coverEditRef.current?.open();
+    } else if (action === 'details') {
+      setEditOpen(true);
+    }
+  }
+
+  function handleTripUpdated(updated) {
+    setTrip((prev) => (prev ? { ...prev, ...updated } : prev));
+  }
+
+  function handleCoverUpdated(url) {
+    setTrip((prev) => (prev ? { ...prev, cover_image_url: url } : prev));
+  }
 
   useEffect(() => {
     loadTrip();
@@ -54,31 +76,53 @@ export default function TripPage() {
 
   return (
     <div className="min-h-screen pb-24 grain">
-      <header className="relative h-44 overflow-hidden">
-        {trip.cover_image_url ? (
-          <img src={trip.cover_image_url} alt={trip.name} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full bg-gradient-sunset" />
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/40 to-ink-900/60" />
-
-        <Link
-          to="/"
-          className="absolute top-4 left-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-ink-900/60 backdrop-blur-md border border-coral-500/30 text-cream-50 safe-area-inset-top"
-          aria-label="Back"
+      {/* Wrap the cover + the kebab so the kebab dropdown isn't clipped by
+          the cover's overflow-hidden. */}
+      <div className="relative">
+        <CoverImageUpload
+          imageUrl={trip.cover_image_url}
+          onFileSelected={() => {}}
+          hideCamera
+          className="h-44"
         >
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
+          <div className="absolute inset-0 bg-gradient-to-t from-ink-900 via-ink-900/40 to-ink-900/60 pointer-events-none" />
 
-        <div className="absolute bottom-0 inset-x-0 p-4">
-          <h1 className="font-display text-3xl font-bold text-cream-50 leading-tight">
-            {trip.name}
-          </h1>
-          <p className="text-sm text-sage-300 mt-1">
-            {trip.country} • {formatDate(trip.start_date)} – {formatDate(trip.end_date)}
-          </p>
+          <Link
+            to="/"
+            className="absolute top-4 left-4 z-10 w-10 h-10 flex items-center justify-center rounded-full bg-ink-900/60 backdrop-blur-md border border-coral-500/30 text-cream-50 safe-area-inset-top"
+            aria-label="Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+
+          <div className="absolute bottom-0 inset-x-0 p-4 z-10">
+            <h1 className="font-display text-3xl font-bold text-cream-50 leading-tight">
+              {trip.name}
+            </h1>
+            <p className="text-sm text-sage-300 mt-1">
+              {trip.country} • {formatDate(trip.start_date)} – {formatDate(trip.end_date)}
+            </p>
+          </div>
+        </CoverImageUpload>
+
+        <div className="absolute top-4 right-4 z-30 safe-area-inset-top">
+          <TripActionsMenu onEdit={handleMenuAction} />
         </div>
-      </header>
+      </div>
+
+      <EditTripModal
+        trip={trip}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        onUpdated={handleTripUpdated}
+        onDeleted={() => navigate('/')}
+      />
+
+      <CoverEditFlow
+        ref={coverEditRef}
+        tripId={trip.id}
+        onUpdated={handleCoverUpdated}
+      />
 
       <div className="sticky top-0 z-20 bg-surface-100/90 backdrop-blur-xl border-b border-surface-200">
         <div className="max-w-2xl mx-auto overflow-x-auto scrollbar-hide">

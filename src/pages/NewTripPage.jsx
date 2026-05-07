@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, MapPin, Type, Loader2, Plus } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Type, Loader2, Plus, ImageIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { generateDayDates } from '../lib/utils';
+import { uploadCoverImage } from '../lib/imageUpload';
 import Logo from '../components/Logo';
+import CoverImageUpload from '../components/CoverImageUpload';
 
 const POPULAR_DESTINATIONS = [
   { name: 'Vietnam', emoji: '🇻🇳' },
@@ -18,6 +20,12 @@ const POPULAR_DESTINATIONS = [
 export default function NewTripPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  // Phase 1: trip details. Phase 2 (after create): pick a cover.
+  const [phase, setPhase] = useState('details');
+  const [createdTrip, setCreatedTrip] = useState(null);
+  const [coverUrl, setCoverUrl] = useState(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+
   const [name, setName] = useState('');
   const [country, setCountry] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -55,16 +63,41 @@ export default function NewTripPage() {
       const { error: daysError } = await supabase.from('itinerary_days').insert(days);
       if (daysError) console.error('Error creating days:', daysError);
 
-      navigate(`/trips/${trip.id}`);
+      setCreatedTrip(trip);
+      setPhase('cover');
     } catch (err) {
       setError(err.message || 'Something went wrong. Please try again.');
+    } finally {
       setLoading(false);
     }
   }
 
+  // Called from CoverImageUpload after the user picks + crops a cover.
+  async function handleCoverPicked(blob) {
+    if (!createdTrip) return;
+    setUploadingCover(true);
+    try {
+      const url = await uploadCoverImage(blob, createdTrip.id);
+      const { error: updateError } = await supabase
+        .from('trips')
+        .update({ cover_image_url: url })
+        .eq('id', createdTrip.id);
+      if (updateError) throw updateError;
+      setCoverUrl(url);
+    } catch (err) {
+      alert('Could not save cover: ' + (err.message || 'unknown error'));
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
+  function goToTrip() {
+    if (createdTrip) navigate(`/trips/${createdTrip.id}`);
+  }
+
   return (
     <div className="min-h-screen pb-10 grain">
-      <header className="sticky top-0 z-30 bg-ink-900/80 backdrop-blur-xl border-b border-teal-900/30 safe-area-inset-top">
+      <header className="sticky top-0 z-30 bg-surface-100/90 backdrop-blur-xl border-b border-surface-200 safe-area-inset-top">
         <div className="max-w-2xl mx-auto px-5 py-4 flex items-center justify-between">
           <Link to="/" className="btn-ghost p-2" aria-label="Back">
             <ArrowLeft className="w-5 h-5" />
@@ -75,118 +108,165 @@ export default function NewTripPage() {
       </header>
 
       <main className="max-w-2xl mx-auto px-5 pt-8">
-        <div className="mb-8 animate-fade-in">
-          <p className="text-coral-500/80 text-lg">Let's plan your</p>
-          <h1 className="font-display text-4xl font-bold mt-1">Next Adventure</h1>
-          <div className="coral-divider w-24 mt-3" />
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-5 animate-slide-up">
-          <div>
-            <label className="block text-sm font-medium text-cream-100/80 mb-2">Trip Name</label>
-            <div className="relative">
-              <Type className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                className="input-field pl-11"
-                placeholder="e.g., Honeymoon in Vietnam"
-              />
+        {phase === 'details' && (
+          <>
+            <div className="mb-8 animate-fade-in">
+              <p className="text-coral-500/80 text-lg">Let's plan your</p>
+              <h1 className="font-display text-4xl font-bold mt-1">Next Adventure</h1>
+              <div className="coral-divider w-24 mt-3" />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-medium text-cream-100/80 mb-2">Destination</label>
-            <div className="relative mb-3">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
-              <input
-                type="text"
-                value={country}
-                onChange={(e) => setCountry(e.target.value)}
-                required
-                className="input-field pl-11"
-                placeholder="Vietnam"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {POPULAR_DESTINATIONS.map((dest) => (
-                <button
-                  key={dest.name}
-                  type="button"
-                  onClick={() => setCountry(dest.name)}
-                  className="px-3 py-1.5 text-sm bg-ink-800/60 border border-teal-900/40 rounded-full hover:border-coral-500/40 hover:bg-ink-700/60 transition-all"
-                >
-                  <span className="mr-1.5">{dest.emoji}</span>
-                  {dest.name}
-                </button>
-              ))}
-            </div>
-          </div>
+            <form onSubmit={handleSubmit} className="space-y-5 animate-slide-up">
+              <div>
+                <label className="block text-sm font-medium text-sage-700 mb-2">Trip Name</label>
+                <div className="relative">
+                  <Type className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    className="input-field pl-11"
+                    placeholder="e.g., Honeymoon in Vietnam"
+                  />
+                </div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-cream-100/80 mb-2">Start Date</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60 pointer-events-none" />
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  required
-                  className="input-field pl-11"
+              <div>
+                <label className="block text-sm font-medium text-sage-700 mb-2">Destination</label>
+                <div className="relative mb-3">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
+                  <input
+                    type="text"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    required
+                    className="input-field pl-11"
+                    placeholder="Vietnam"
+                  />
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {POPULAR_DESTINATIONS.map((dest) => (
+                    <button
+                      key={dest.name}
+                      type="button"
+                      onClick={() => setCountry(dest.name)}
+                      className="px-3 py-1.5 text-sm bg-surface-50 border border-surface-200 rounded-full hover:border-coral-500/40 hover:bg-surface-100 text-ink-900 transition-all"
+                    >
+                      <span className="mr-1.5">{dest.emoji}</span>
+                      {dest.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-sage-700 mb-2">Start Date</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      required
+                      className="input-field pl-11"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-sage-700 mb-2">End Date</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      required
+                      min={startDate}
+                      className="input-field pl-11"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-sage-700 mb-2">Description (Optional)</label>
+                <textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={3}
+                  className="input-field resize-none"
+                  placeholder="A few words about the trip..."
                 />
               </div>
+
+              {error && (
+                <div className="p-3 bg-coral-100 border border-coral-300 rounded-lg text-sm text-coral-700">
+                  {error}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-coral w-full flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <>
+                    <Plus className="w-5 h-5" />
+                    <span>Create Trip</span>
+                  </>
+                )}
+              </button>
+            </form>
+          </>
+        )}
+
+        {phase === 'cover' && createdTrip && (
+          <div className="animate-fade-in">
+            <div className="mb-6">
+              <p className="text-coral-500/80 text-lg">Almost there</p>
+              <h1 className="font-display text-3xl font-bold mt-1">Pick a cover</h1>
+              <p className="text-sm text-sage-600 mt-2">
+                Add a photo for the trip. You can skip and add one later.
+              </p>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-cream-100/80 mb-2">End Date</label>
-              <div className="relative">
-                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60 pointer-events-none" />
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  required
-                  min={startDate}
-                  className="input-field pl-11"
-                />
-              </div>
+
+            <div className="space-y-4 animate-slide-up">
+              <CoverImageUpload
+                imageUrl={coverUrl}
+                onFileSelected={handleCoverPicked}
+                disabled={uploadingCover}
+              />
+
+              {uploadingCover && (
+                <div className="p-3 bg-surface-100 border border-surface-200 rounded-lg text-sm text-sage-700 flex items-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-coral-500" />
+                  Uploading cover...
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={goToTrip}
+                disabled={uploadingCover}
+                className="btn-coral w-full flex items-center justify-center gap-2"
+              >
+                {coverUrl ? (
+                  <>
+                    <ImageIcon className="w-5 h-5" />
+                    <span>Continue</span>
+                  </>
+                ) : (
+                  <span>Skip for now</span>
+                )}
+              </button>
             </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-cream-100/80 mb-2">Description (Optional)</label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="input-field resize-none"
-              placeholder="A few words about the trip..."
-            />
-          </div>
-
-          {error && (
-            <div className="p-3 bg-teal-900/40 border border-teal-700/40 rounded-lg text-sm text-teal-200">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                <Plus className="w-5 h-5" />
-                <span>Create Trip</span>
-              </>
-            )}
-          </button>
-        </form>
+        )}
       </main>
     </div>
   );

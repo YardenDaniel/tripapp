@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, MapPin, Calendar, LogOut } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,11 +6,42 @@ import { supabase } from '../lib/supabase';
 import { formatDate, daysBetween } from '../lib/utils';
 import Logo from '../components/Logo';
 import LoadingScreen from '../components/LoadingScreen';
+import TripActionsMenu from '../components/TripActionsMenu';
+import EditTripModal from '../components/EditTripModal';
+import CoverEditFlow from '../components/CoverEditFlow';
 
 export default function HomePage() {
   const { signOut } = useAuth();
   const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [editingTrip, setEditingTrip] = useState(null);
+  const [coverEditTripId, setCoverEditTripId] = useState(null);
+  const coverEditRef = useRef(null);
+
+  function handleMenuAction(trip, action) {
+    if (action === 'cover') {
+      setCoverEditTripId(trip.id);
+      // The flow auto-opens on the next render once the ref is in place.
+      requestAnimationFrame(() => coverEditRef.current?.open());
+    } else if (action === 'details') {
+      setEditingTrip(trip);
+    }
+  }
+
+  function handleTripUpdated(updated) {
+    setTrips((prev) => prev.map((t) => (t.id === updated.id ? { ...t, ...updated } : t)));
+  }
+
+  function handleCoverUpdated(url) {
+    if (!coverEditTripId) return;
+    setTrips((prev) =>
+      prev.map((t) => (t.id === coverEditTripId ? { ...t, cover_image_url: url } : t)),
+    );
+  }
+
+  function handleTripDeleted(tripId) {
+    setTrips((prev) => prev.filter((t) => t.id !== tripId));
+  }
 
   useEffect(() => {
     loadTrips();
@@ -58,7 +89,12 @@ export default function HomePage() {
             </h2>
             <div className="space-y-4">
               {upcomingTrips.map((trip, i) => (
-                <TripCard key={trip.id} trip={trip} delay={i * 0.05} />
+                <TripCard
+                  key={trip.id}
+                  trip={trip}
+                  delay={i * 0.05}
+                  onEdit={(action) => handleMenuAction(trip, action)}
+                />
               ))}
             </div>
           </section>
@@ -87,7 +123,12 @@ export default function HomePage() {
             </h2>
             <div className="space-y-4 opacity-80">
               {pastTrips.map((trip, i) => (
-                <TripCard key={trip.id} trip={trip} delay={i * 0.05} />
+                <TripCard
+                  key={trip.id}
+                  trip={trip}
+                  delay={i * 0.05}
+                  onEdit={(action) => handleMenuAction(trip, action)}
+                />
               ))}
             </div>
           </section>
@@ -103,63 +144,89 @@ export default function HomePage() {
           <span>New Trip</span>
         </Link>
       )}
+
+      {editingTrip && (
+        <EditTripModal
+          trip={editingTrip}
+          open={!!editingTrip}
+          onClose={() => setEditingTrip(null)}
+          onUpdated={handleTripUpdated}
+          onDeleted={handleTripDeleted}
+        />
+      )}
+
+      {coverEditTripId && (
+        <CoverEditFlow
+          ref={coverEditRef}
+          tripId={coverEditTripId}
+          onUpdated={handleCoverUpdated}
+        />
+      )}
     </div>
   );
 }
 
-function TripCard({ trip, delay = 0 }) {
+function TripCard({ trip, delay = 0, onEdit }) {
   const totalDays = daysBetween(trip.start_date, trip.end_date);
   const isFuture = new Date(trip.start_date) > new Date();
   const daysUntil = Math.ceil((new Date(trip.start_date) - new Date()) / (1000 * 60 * 60 * 24));
+  const showCountdown = isFuture && daysUntil > 0 && daysUntil <= 30;
 
   return (
-    <Link
-      to={`/trips/${trip.id}`}
-      className="block animate-slide-up"
-      style={{ animationDelay: `${delay}s` }}
-    >
-      <div className="card-warm ornamental-border hover:border-coral-500/40 transition-all duration-300 group">
-        <div className="relative -mx-5 -mt-5 mb-4 h-32 overflow-hidden rounded-t-2xl">
-          {trip.cover_image_url ? (
-            <img
-              src={trip.cover_image_url}
-              alt={trip.name}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-sunset" />
-          )}
-          {isFuture && daysUntil > 0 && daysUntil <= 30 && (
-            <div className="absolute top-3 right-3 px-3 py-1 bg-coral-500 text-white text-xs font-bold rounded-full shadow-coral">
-              In {daysUntil} days
-            </div>
-          )}
-        </div>
-
-        <div>
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <h3 className="font-display text-xl font-bold text-ink-900 leading-tight">
-              {trip.name}
-            </h3>
-            <span className="text-xs text-coral-600 mt-1 whitespace-nowrap">
-              {trip.country}
-            </span>
+    <div className="relative animate-slide-up" style={{ animationDelay: `${delay}s` }}>
+      <Link
+        to={`/trips/${trip.id}`}
+        className="block"
+      >
+        <div className="card-warm ornamental-border hover:border-coral-500/40 transition-all duration-300 group">
+          <div className="relative -mx-5 -mt-5 mb-4 h-32 overflow-hidden rounded-t-2xl">
+            {trip.cover_image_url ? (
+              <img
+                src={trip.cover_image_url}
+                alt={trip.name}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-sunset" />
+            )}
           </div>
 
-          <div className="flex items-center gap-4 text-sm text-sage-600 mt-3">
-            <div className="flex items-center gap-1.5">
-              <Calendar className="w-4 h-4 text-teal-500" />
-              <span>{formatDate(trip.start_date, { month: 'short', day: 'numeric' })}</span>
-              <span className="text-sage-400">→</span>
-              <span>{formatDate(trip.end_date, { month: 'short', day: 'numeric' })}</span>
+          <div>
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <h3 className="font-display text-xl font-bold text-ink-900 leading-tight">
+                {trip.name}
+              </h3>
+              <span className="text-xs text-coral-600 mt-1 whitespace-nowrap">
+                {trip.country}
+              </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sage-400">·</span>
-              <span>{totalDays} days</span>
+
+            <div className="flex items-center gap-4 text-sm text-sage-600 mt-3">
+              <div className="flex items-center gap-1.5">
+                <Calendar className="w-4 h-4 text-teal-500" />
+                <span>{formatDate(trip.start_date, { month: 'short', day: 'numeric' })}</span>
+                <span className="text-sage-400">→</span>
+                <span>{formatDate(trip.end_date, { month: 'short', day: 'numeric' })}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="text-sage-400">·</span>
+                <span>{totalDays} days</span>
+              </div>
             </div>
           </div>
         </div>
+      </Link>
+
+      {/* Top-right overlay: countdown badge + 3-dot menu. Sits on top of the
+          Link so the kebab dropdown can spill out of the cover's overflow-hidden. */}
+      <div className="absolute top-3 right-3 z-20 flex items-center gap-2">
+        {showCountdown && (
+          <div className="px-3 py-1 bg-coral-500 text-white text-xs font-bold rounded-full shadow-coral">
+            In {daysUntil} days
+          </div>
+        )}
+        {onEdit && <TripActionsMenu onEdit={onEdit} />}
       </div>
-    </Link>
+    </div>
   );
 }
