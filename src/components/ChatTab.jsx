@@ -64,14 +64,19 @@ function ChatInterface({ trip }) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const messagesEndRef = useRef(null);
+  // Scroll the inner chat list directly instead of using scrollIntoView,
+  // which can scroll the page (not just the list) and shift the cover above.
+  const listRef = useRef(null);
 
   useEffect(() => {
     loadMessages();
   }, [trip.id]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = listRef.current;
+    if (!el) return;
+    if (messages.length === 0) return;
+    el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   async function loadMessages() {
@@ -177,7 +182,7 @@ Respond in English, concisely (up to 4 sentences when possible), in a friendly a
 
   return (
     <div className="animate-fade-in flex flex-col h-[calc(100vh-280px)] min-h-[500px]">
-      <div className="flex-1 overflow-y-auto space-y-4 pb-4">
+      <div ref={listRef} className="flex-1 overflow-y-auto space-y-4 pb-4">
         {loading ? (
           <div className="flex justify-center py-8">
             <Loader2 className="w-6 h-6 animate-spin text-coral-500" />
@@ -212,7 +217,6 @@ Respond in English, concisely (up to 4 sentences when possible), in a friendly a
             <span className="italic">Thinking...</span>
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       <form onSubmit={sendMessage} className="flex gap-2 pt-3 border-t border-surface-200">
