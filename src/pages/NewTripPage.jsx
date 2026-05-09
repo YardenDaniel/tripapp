@@ -1,21 +1,22 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, MapPin, Type, Loader2, Plus, ImageIcon } from 'lucide-react';
+import { ArrowLeft, Calendar, Type, Loader2, Plus, ImageIcon } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { generateDayDates } from '../lib/utils';
 import { uploadCoverImage } from '../lib/imageUpload';
+import { getCountry } from '../lib/countries';
 import Logo from '../components/Logo';
 import CoverImageUpload from '../components/CoverImageUpload';
+import CountryCombobox from '../components/CountryCombobox';
 
-const POPULAR_DESTINATIONS = [
-  { name: 'Vietnam', emoji: '🇻🇳' },
-  { name: 'Thailand', emoji: '🇹🇭' },
-  { name: 'Japan', emoji: '🇯🇵' },
-  { name: 'Italy', emoji: '🇮🇹' },
-  { name: 'Greece', emoji: '🇬🇷' },
-  { name: 'Portugal', emoji: '🇵🇹' },
-];
+// Suggested quick-pick destinations. Names must match countries.json so the
+// flag and metadata are consistent everywhere. Falls back gracefully if a
+// name is missing from the data file.
+const POPULAR_NAMES = ['Vietnam', 'Thailand', 'Japan', 'Italy', 'Greece', 'Portugal', 'France', 'Spain'];
+const POPULAR_DESTINATIONS = POPULAR_NAMES
+  .map((name) => getCountry(name))
+  .filter(Boolean);
 
 export default function NewTripPage() {
   const navigate = useNavigate();
@@ -134,26 +135,18 @@ export default function NewTripPage() {
 
               <div>
                 <label className="block text-sm font-medium text-sage-700 mb-2">Destination</label>
-                <div className="relative mb-3">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60" />
-                  <input
-                    type="text"
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    required
-                    className="input-field pl-11"
-                    placeholder="Vietnam"
-                  />
+                <div className="mb-3">
+                  <CountryCombobox value={country} onChange={setCountry} />
                 </div>
                 <div className="flex flex-wrap gap-2">
                   {POPULAR_DESTINATIONS.map((dest) => (
                     <button
-                      key={dest.name}
+                      key={dest.code2}
                       type="button"
                       onClick={() => setCountry(dest.name)}
                       className="px-3 py-1.5 text-sm bg-surface-50 border border-surface-200 rounded-full hover:border-coral-500/40 hover:bg-surface-100 text-ink-900 transition-all"
                     >
-                      <span className="mr-1.5">{dest.emoji}</span>
+                      <span className="mr-1.5">{dest.flag}</span>
                       {dest.name}
                     </button>
                   ))}
@@ -161,7 +154,7 @@ export default function NewTripPage() {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div>
+                <div className="min-w-0">
                   <label className="block text-sm font-medium text-sage-700 mb-2">Start Date</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60 pointer-events-none" />
@@ -170,11 +163,11 @@ export default function NewTripPage() {
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                       required
-                      className="input-field pl-11"
+                      className="input-field pl-11 h-12 appearance-none"
                     />
                   </div>
                 </div>
-                <div>
+                <div className="min-w-0">
                   <label className="block text-sm font-medium text-sage-700 mb-2">End Date</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-coral-500/60 pointer-events-none" />
@@ -184,7 +177,7 @@ export default function NewTripPage() {
                       onChange={(e) => setEndDate(e.target.value)}
                       required
                       min={startDate}
-                      className="input-field pl-11"
+                      className="input-field pl-11 h-12 appearance-none"
                     />
                   </div>
                 </div>

@@ -8,32 +8,11 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatDate } from '../lib/utils';
+import { getMapCenter, getISOCode, normalizeCountryName } from '../lib/countries';
 import { useAuth } from '../contexts/AuthContext';
 
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 const MAP_STYLE = 'mapbox://styles/mapbox/outdoors-v12';
-
-const COUNTRY_CENTERS = {
-  Vietnam: { lat: 21.0285, lng: 105.8542, zoom: 5.5 },
-  Thailand: { lat: 13.7563, lng: 100.5018, zoom: 5.5 },
-  Japan: { lat: 35.6762, lng: 139.6503, zoom: 5 },
-  Italy: { lat: 41.9028, lng: 12.4964, zoom: 5 },
-  Greece: { lat: 37.9838, lng: 23.7275, zoom: 6 },
-  Portugal: { lat: 38.7223, lng: -9.1393, zoom: 6 },
-  Israel: { lat: 31.7683, lng: 35.2137, zoom: 7 },
-  Egypt: { lat: 26.8206, lng: 30.8025, zoom: 5 },
-};
-
-const COUNTRY_ALIASES = {
-  'ויאטנם': 'Vietnam', 'תאילנד': 'Thailand', 'יפן': 'Japan',
-  'איטליה': 'Italy', 'יוון': 'Greece', 'פורטוגל': 'Portugal',
-  'ישראל': 'Israel', 'מצרים': 'Egypt', 'siani': 'Egypt', 'sinai': 'Egypt',
-};
-
-function normalizeCountryName(name) {
-  if (!name) return name;
-  return COUNTRY_ALIASES[name.toLowerCase()] || COUNTRY_ALIASES[name] || name;
-}
 
 function parseCoords(raw) {
   if (!raw) return null;
@@ -137,15 +116,6 @@ async function forwardGeocode(query, opts = {}) {
     if (err.name !== 'AbortError') console.warn('Forward geocode failed:', err);
     return [];
   }
-}
-
-const TRIP_COUNTRY_ISO = {
-  Vietnam: 'vn', Thailand: 'th', Japan: 'jp', Italy: 'it',
-  Greece: 'gr', Portugal: 'pt', Israel: 'il', Egypt: 'eg',
-};
-function tripCountryISO(name) {
-  if (!name) return undefined;
-  return TRIP_COUNTRY_ISO[name];
 }
 
 // Distance between two coords in meters (Haversine)
@@ -1439,7 +1409,7 @@ export default function MemoriesMapTab({ trip }) {
   }, [memories, locationPicker]);
 
   const tripCountry = normalizeCountryName(trip.country);
-  const center = COUNTRY_CENTERS[tripCountry] || { lat: 21.0285, lng: 105.8542, zoom: 5 };
+  const center = getMapCenter(tripCountry);
 
   useEffect(() => {
     loadMemories();
@@ -1823,7 +1793,7 @@ export default function MemoriesMapTab({ trip }) {
           <LocationPickerToolbar
             coords={locationPicker.coords}
             locationName={locationPicker.locationName}
-            countryISO={tripCountryISO(tripCountry)}
+            countryISO={getISOCode(tripCountry)}
             proximity={locationPicker.coords}
             sessionToken={locationPicker.sessionToken}
             modeLabel={locationPicker.mode === 'edit' ? 'Edit location' : 'Pick location'}

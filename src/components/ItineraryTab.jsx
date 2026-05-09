@@ -441,23 +441,23 @@ function ActivityModal({ dayId, tripId, onClose, onAdded }) {
               ))}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
+          <div className="flex gap-3">
+            <div className="w-32 flex-shrink-0">
               <label className="block text-sm font-medium text-sage-700 mb-2">Time</label>
               <input
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className="input-field"
+                className="input-field h-12 appearance-none"
               />
             </div>
-            <div>
+            <div className="flex-1 min-w-0">
               <label className="block text-sm font-medium text-sage-700 mb-2">Location</label>
               <input
                 type="text"
                 value={locationName}
                 onChange={(e) => setLocationName(e.target.value)}
-                className="input-field"
+                className="input-field h-12"
                 placeholder="Place name"
               />
             </div>

@@ -1,23 +1,66 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeftRight, Loader2, RefreshCw, TrendingUp } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { getAllCountries, getDefaultCurrency } from '../lib/countries';
 
-const CURRENCIES = [
-  { code: 'VND', name: 'Vietnamese Dong', flag: '🇻🇳' },
-  { code: 'USD', name: 'US Dollar', flag: '🇺🇸' },
-  { code: 'EUR', name: 'Euro', flag: '🇪🇺' },
-  { code: 'ILS', name: 'Israeli Shekel', flag: '🇮🇱' },
-  { code: 'THB', name: 'Thai Baht', flag: '🇹🇭' },
-  { code: 'JPY', name: 'Japanese Yen', flag: '🇯🇵' },
-  { code: 'GBP', name: 'British Pound', flag: '🇬🇧' },
-];
+// Build the currency dropdown list from countries.json — one entry per
+// distinct currency code. For currencies that span multiple countries (USD,
+// EUR), the country-specific flag would be misleading (Ecuador's 🇪🇨 for USD
+// because it's alphabetically first), so we force the canonical flag.
+const FLAG_OVERRIDES = {
+  USD: '🇺🇸',
+  EUR: '🇪🇺',
+};
 
-const QUICK_AMOUNTS = [10000, 50000, 100000, 500000, 1000000];
+function buildCurrenciesList() {
+  const seen = new Map();
+  for (const c of getAllCountries()) {
+    const code = c.currency?.code;
+    if (!code || seen.has(code)) continue;
+    seen.set(code, {
+      code,
+      name: c.currency.name,
+      symbol: c.currency.symbol,
+      flag: FLAG_OVERRIDES[code] || c.flag,
+    });
+  }
+  if (!seen.has('USD')) {
+    seen.set('USD', { code: 'USD', name: 'US Dollar', symbol: '$', flag: '🇺🇸' });
+  }
+  if (!seen.has('EUR')) {
+    seen.set('EUR', { code: 'EUR', name: 'Euro', symbol: '€', flag: '🇪🇺' });
+  }
+  return [...seen.values()].sort((a, b) => a.code.localeCompare(b.code));
+}
+
+const CURRENCIES = buildCurrenciesList();
+const CURRENCY_BY_CODE = new Map(CURRENCIES.map((c) => [c.code, c]));
+
+// Returns 5 round amounts in `fromCurrency` that approximate $5, $20, $50,
+// $200, $1000 USD. Adapts to any currency: gets bigger numbers for low-value
+// units (VND, IDR), smaller numbers for high-value units.
+function buildQuickAmounts(fromCurrency, rates) {
+  if (!rates) return [];
+  const fromRate = rates[fromCurrency] || 1; // rate from USD → fromCurrency
+  return [5, 20, 50, 200, 1000].map((usd) => {
+    const raw = usd * fromRate;
+    if (raw >= 100000) return Math.round(raw / 10000) * 10000;
+    if (raw >= 10000) return Math.round(raw / 1000) * 1000;
+    if (raw >= 1000) return Math.round(raw / 100) * 100;
+    if (raw >= 100) return Math.round(raw / 10) * 10;
+    if (raw >= 10) return Math.round(raw);
+    if (raw >= 1) return Math.round(raw * 10) / 10;
+    return Math.round(raw * 100) / 100;
+  });
+}
 
 export default function CurrencyTab({ trip }) {
-  const [from, setFrom] = useState('VND');
-  const [to, setTo] = useState('USD');
-  const [amount, setAmount] = useState('100000');
+  const tripCurrency = useMemo(() => getDefaultCurrency(trip.country), [trip.country]);
+  const [from, setFrom] = useState(tripCurrency);
+  // Default destination is USD, unless the trip's own currency IS USD —
+  // then EUR makes a more useful default than a USD→USD identity conversion.
+  const [to, setTo] = useState(() => (tripCurrency === 'USD' ? 'EUR' : 'USD'));
+  const [amount, setAmount] = useState('100');
   const [rates, setRates] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -50,6 +93,9 @@ export default function CurrencyTab({ trip }) {
 
   const result = convert(parseFloat(amount) || 0, from, to);
   const reverseRate = convert(1, to, from);
+  const quickAmounts = useMemo(() => buildQuickAmounts(from, rates), [from, rates]);
+  const fromMeta = CURRENCY_BY_CODE.get(from);
+  const toMeta = CURRENCY_BY_CODE.get(to);
 
   function swap() {
     setFrom(to);
@@ -102,7 +148,7 @@ export default function CurrencyTab({ trip }) {
         <div className="flex justify-center -my-1">
           <button
             onClick={swap}
-            className="w-10 h-10 rounded-full bg-gradient-coral text-ink-900 shadow-coral hover:scale-110 active:scale-95 transition-transform flex items-center justify-center"
+            className="w-10 h-10 rounded-full bg-gradient-coral text-white shadow-coral hover:scale-110 active:scale-95 transition-transform flex items-center justify-center"
             aria-label="Swap"
           >
             <ArrowLeftRight className="w-5 h-5" />
@@ -151,35 +197,30 @@ export default function CurrencyTab({ trip }) {
         )}
       </div>
 
-      {from === 'VND' && (
+      {quickAmounts.length > 0 && (
         <div className="card-warm">
           <h3 className="font-display font-semibold mb-3 text-coral-500">Common Amounts</h3>
           <div className="grid grid-cols-2 gap-2">
-            {QUICK_AMOUNTS.map((amt) => (
+            {quickAmounts.map((amt) => (
               <button
                 key={amt}
                 onClick={() => setAmount(String(amt))}
                 className="p-3 bg-surface-100 hover:bg-surface-200 border border-surface-200 hover:border-coral-500/40 rounded-xl transition-all text-left"
               >
                 <div className="text-sm font-mono text-ink-900">
-                  ₫ {amt.toLocaleString()}
+                  {fromMeta?.symbol || ''} {amt.toLocaleString()}
                 </div>
                 <div className="text-xs text-coral-500 font-mono mt-0.5">
-                  ≈ ${convert(amt, 'VND', 'USD').toFixed(2)}
+                  ≈ {toMeta?.symbol || ''}
+                  {convert(amt, from, to).toLocaleString('en-US', {
+                    maximumFractionDigits: 2,
+                  })}
                 </div>
               </button>
             ))}
           </div>
         </div>
       )}
-
-      <div className="card-warm bg-gradient-to-br from-coral-500/5 to-transparent">
-        <h3 className="font-display font-semibold mb-2 text-coral-500">💡 Local Tip</h3>
-        <p className="text-sm text-sage-700 leading-relaxed">
-          In Vietnam, dong banknotes are easy to confuse: 100,000 ₫ ≈ $4 USD. When someone says "100K", they mean 100,000 dong.
-          Always ask to see the price written down before agreeing.
-        </p>
-      </div>
     </div>
   );
 }
