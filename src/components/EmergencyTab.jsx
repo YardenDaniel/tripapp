@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Phone, Plus, X, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { EMERGENCY_TYPE_ICONS, cn } from '../lib/utils';
+import { getEmergencyDefaults } from '../lib/countries';
 
 const TYPE_LABELS = {
   police: 'Police',
@@ -22,17 +23,26 @@ export default function EmergencyTab({ trip }) {
   }, [trip.id]);
 
   async function loadContacts() {
+    // Default emergency contacts (police / ambulance / fire) come from the
+    // in-memory countries data. User-added trip-specific contacts come from DB.
+    const defaults = getEmergencyDefaults(trip.country).map((d) => ({
+      ...d,
+      id: `default-${trip.country}-${d.type}`,
+      trip_id: null,
+    }));
+
     try {
       const { data, error } = await supabase
         .from('emergency_contacts')
         .select('*')
-        .or(`and(country.eq.${trip.country},is_default.eq.true),trip_id.eq.${trip.id}`)
-        .order('is_default', { ascending: false });
+        .eq('trip_id', trip.id)
+        .order('created_at');
 
       if (error) throw error;
-      setContacts(data || []);
+      setContacts([...defaults, ...(data || [])]);
     } catch (err) {
       console.error(err);
+      setContacts(defaults);
     } finally {
       setLoading(false);
     }

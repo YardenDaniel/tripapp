@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { Send, Sparkles, Loader2, Lock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
+import { getCountry } from '../lib/countries';
 
 const HAS_API_KEY = !!import.meta.env.VITE_ANTHROPIC_API_KEY;
 
@@ -173,11 +174,16 @@ Respond in English, concisely (up to 4 sentences when possible), in a friendly a
     }
   }
 
+  // Templated starter prompts using the trip's country / capital.
+  // Falls back to country name if the country isn't in our data file.
+  const countryMeta = getCountry(trip.country);
+  const place = countryMeta?.capital || trip.country;
+  const countryName = countryMeta?.name || trip.country;
   const suggestions = [
-    'What should I eat in Hanoi?',
-    'How do I get from Hanoi to Ha Long Bay?',
-    'Must-see attractions in Northern Vietnam',
-    'Good pho restaurants nearby',
+    `What should I eat in ${place}?`,
+    `Must-see attractions in ${countryName}`,
+    `Tips for getting around in ${countryName}`,
+    `Local etiquette and customs in ${countryName}`,
   ];
 
   return (

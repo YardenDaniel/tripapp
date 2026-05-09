@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { X, Loader2, Trash2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import CountryCombobox from './CountryCombobox';
 
 // Edits the textual fields of a trip: name, country, dates, description.
 // Cover image is handled separately by CoverEditFlow (see TripActionsMenu).
@@ -119,14 +120,7 @@ export default function EditTripModal({ trip, open, onClose, onUpdated, onDelete
 
           <div>
             <label className="block text-sm font-medium text-sage-700 mb-2">Country</label>
-            <input
-              type="text"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              required
-              className="input-field"
-              placeholder="Vietnam"
-            />
+            <CountryCombobox value={country} onChange={setCountry} />
             {countryChanged && (
               <p className="text-xs text-sage-500 mt-1.5">
                 Existing memories keep their location. Emergency contacts won't auto-update.
@@ -142,7 +136,7 @@ export default function EditTripModal({ trip, open, onClose, onUpdated, onDelete
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
                 required
-                className="input-field"
+                className="input-field h-12 appearance-none min-w-0"
               />
               <input
                 type="date"
@@ -150,7 +144,7 @@ export default function EditTripModal({ trip, open, onClose, onUpdated, onDelete
                 onChange={(e) => setEndDate(e.target.value)}
                 required
                 min={startDate}
-                className="input-field"
+                className="input-field h-12 appearance-none min-w-0"
               />
             </div>
             {datesChanged && (
