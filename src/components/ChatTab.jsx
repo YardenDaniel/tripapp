@@ -1,63 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
-import { Send, Sparkles, Loader2, Lock } from 'lucide-react';
+import { Send, Sparkles, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
 import { getCountry } from '../lib/countries';
 
-const HAS_API_KEY = !!import.meta.env.VITE_ANTHROPIC_API_KEY;
-
 export default function ChatTab({ trip }) {
-  if (!HAS_API_KEY) {
-    return <ComingSoonScreen />;
-  }
   return <ChatInterface trip={trip} />;
-}
-
-function ComingSoonScreen() {
-  return (
-    <div className="animate-fade-in flex flex-col items-center justify-center min-h-[400px] text-center px-4">
-      <div className="w-20 h-20 rounded-full bg-gradient-coral flex items-center justify-center shadow-coral mb-6 relative">
-        <Sparkles className="w-10 h-10 text-ink-900" />
-        <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-ink-900 border-2 border-coral-500 flex items-center justify-center">
-          <Lock className="w-3.5 h-3.5 text-coral-500" />
-        </div>
-      </div>
-
-      <h3 className="font-display text-2xl font-bold mb-3">Smart Assistant Coming Soon</h3>
-
-      <p className="text-sm text-sage-600 max-w-sm leading-relaxed mb-6">
-        Your AI travel assistant will recommend restaurants, attractions, hidden gems, and help you plan in real time.
-      </p>
-
-      <div className="card-warm max-w-sm w-full text-left">
-        <h4 className="font-display font-semibold text-coral-500 mb-2 text-sm">
-          ✨ What it will do
-        </h4>
-        <ul className="space-y-2 text-xs text-sage-600">
-          <li className="flex items-start gap-2">
-            <span className="text-coral-500 mt-0.5">•</span>
-            <span>Recommend restaurants based on your current location</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-coral-500 mt-0.5">•</span>
-            <span>Answer questions about culture, customs, and local tips</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-coral-500 mt-0.5">•</span>
-            <span>Add recommendations directly to your itinerary</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-coral-500 mt-0.5">•</span>
-            <span>Remember your trip context - where you've been, what you've seen</span>
-          </li>
-        </ul>
-      </div>
-
-      <p className="text-xs text-sage-500 mt-6">
-        Will activate automatically when API key is added
-      </p>
-    </div>
-  );
 }
 
 function ChatInterface({ trip }) {
@@ -130,28 +78,16 @@ New question: ${userMsg}
 Respond in English, concisely (up to 4 sentences when possible), in a friendly and warm tone. If the user asks about a specific place, restaurant, or attraction, answer in a focused way. When relevant, end with a suggestion: "Want me to add this to your itinerary?"`;
 
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-5',
-          max_tokens: 1024,
-          messages: [{ role: 'user', content: prompt }],
-        }),
+      // Calls the Supabase Edge Function 'chat' which holds the Anthropic key
+      // server-side. The user's auth JWT is attached automatically.
+      const { data, error: fnError } = await supabase.functions.invoke('chat', {
+        body: { prompt },
       });
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error?.message || 'AI error');
-      }
+      if (fnError) throw new Error(fnError.message || 'AI error');
+      if (data?.error) throw new Error(data.error);
 
-      const result = await response.json();
-      const aiContent = result.content?.[0]?.text || "Sorry, I couldn't understand. Could you try again?";
+      const aiContent = data?.text || "Sorry, I couldn't understand. Could you try again?";
 
       const { data: savedAi } = await supabase
         .from('chat_messages')
@@ -165,7 +101,7 @@ Respond in English, concisely (up to 4 sentences when possible), in a friendly a
       const errorMsg = {
         id: 'error-' + Date.now(),
         role: 'assistant',
-        content: `Sorry, there's an issue connecting to the AI. ${err.message?.includes('API key') ? 'Looks like the API key is missing.' : 'Please try again in a moment.'}`,
+        content: `Sorry, there's an issue connecting to the AI. Please try again in a moment.`,
         created_at: new Date().toISOString(),
       };
       setMessages((prev) => [...prev, errorMsg]);
