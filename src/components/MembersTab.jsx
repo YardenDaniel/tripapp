@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react';
-import { UserPlus, X, Crown, Trash2, Loader2 } from 'lucide-react';
+import { UserPlus, X, Crown, Trash2, Loader2, Link2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { cn } from '../lib/utils';
+import InviteLinkModal from './InviteLinkModal';
 
 export default function MembersTab({ trip }) {
   const { user } = useAuth();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showInvite, setShowInvite] = useState(false);
+  const [showInviteLink, setShowInviteLink] = useState(false);
 
   const isOwner = trip.owner_id === user.id;
 
@@ -71,13 +73,22 @@ export default function MembersTab({ trip }) {
       )}
 
       {isOwner && (
-        <button
-          onClick={() => setShowInvite(true)}
-          className="w-full py-3 border border-dashed border-coral-500/30 rounded-xl text-coral-500/80 hover:border-coral-500/60 hover:bg-coral-500/5 transition-all flex items-center justify-center gap-2 text-sm"
-        >
-          <UserPlus className="w-4 h-4" />
-          <span>Invite Traveler</span>
-        </button>
+        <div className="space-y-2">
+          <button
+            onClick={() => setShowInviteLink(true)}
+            className="w-full py-3 btn-primary flex items-center justify-center gap-2 text-sm"
+          >
+            <Link2 className="w-4 h-4" />
+            <span>Share invite link</span>
+          </button>
+          <button
+            onClick={() => setShowInvite(true)}
+            className="w-full py-2.5 border border-dashed border-coral-500/30 rounded-xl text-coral-500/80 hover:border-coral-500/60 hover:bg-coral-500/5 transition-all flex items-center justify-center gap-2 text-xs"
+          >
+            <UserPlus className="w-3.5 h-3.5" />
+            <span>Or invite by email (existing user)</span>
+          </button>
+        </div>
       )}
 
       {showInvite && (
@@ -85,6 +96,13 @@ export default function MembersTab({ trip }) {
           trip={trip}
           existingEmails={members.map((m) => m.profile?.email).filter(Boolean)}
           onClose={() => { setShowInvite(false); loadMembers(); }}
+        />
+      )}
+
+      {showInviteLink && (
+        <InviteLinkModal
+          trip={trip}
+          onClose={() => setShowInviteLink(false)}
         />
       )}
     </div>
