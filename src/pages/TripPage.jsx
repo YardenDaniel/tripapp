@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Calendar, MapPinned, MessageSquare, Phone, Coins, Users } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPinned, MessageSquare, Phone, Coins, Users, Backpack } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { formatDate, cn } from '../lib/utils';
 import LoadingScreen from '../components/LoadingScreen';
@@ -14,9 +14,11 @@ import ChatTab from '../components/ChatTab';
 import EmergencyTab from '../components/EmergencyTab';
 import CurrencyTab from '../components/CurrencyTab';
 import MembersTab from '../components/MembersTab';
+import PackingTab from '../components/PackingTab';
 
 const TABS = [
   { id: 'itinerary', label: 'Schedule', icon: Calendar },
+  { id: 'packing', label: 'Packing', icon: Backpack },
   { id: 'map', label: 'Memory Map', icon: MapPinned },
   { id: 'chat', label: 'Assistant', icon: MessageSquare },
   { id: 'currency', label: 'Currency', icon: Coins },
@@ -193,6 +195,11 @@ export default function TripPage() {
         {visitedTabs.has('itinerary') && (
           <div className={activeTab === 'itinerary' ? '' : 'hidden'}>
             <ItineraryTab trip={trip} />
+          </div>
+        )}
+        {visitedTabs.has('packing') && (
+          <div className={activeTab === 'packing' ? '' : 'hidden'}>
+            <PackingTab trip={trip} />
           </div>
         )}
         {visitedTabs.has('map') && (
