@@ -55,9 +55,16 @@ export function generateDayDates(startDate, endDate) {
 
 export const ACTIVITY_TYPES = {
   food: { label: 'Food', icon: '🍜', color: 'bg-amber-500/20 text-amber-200' },
-  lodging: { label: 'Lodging', icon: '🏨', color: 'bg-purple-500/20 text-purple-200' },
+  lodging: { label: 'Stay', icon: '🏨', color: 'bg-purple-500/20 text-purple-200' },
   attraction: { label: 'Attraction', icon: '🏛️', color: 'bg-sage-500/20 text-sage-200' },
   transport: { label: 'Transport', icon: '🚌', color: 'bg-blue-500/20 text-blue-200' },
+  flight: { label: 'Flight', icon: '✈️', color: 'bg-sky-500/20 text-sky-200' },
+  train: { label: 'Train', icon: '🚆', color: 'bg-indigo-500/20 text-indigo-200' },
+  shopping: { label: 'Shopping', icon: '🛍️', color: 'bg-pink-500/20 text-pink-200' },
+  beach: { label: 'Beach', icon: '🏖️', color: 'bg-cyan-500/20 text-cyan-200' },
+  coffee: { label: 'Coffee', icon: '☕', color: 'bg-orange-500/20 text-orange-200' },
+  hike: { label: 'Hiking', icon: '🥾', color: 'bg-emerald-500/20 text-emerald-200' },
+  adventure: { label: 'Adventure', icon: '🎒', color: 'bg-rose-500/20 text-rose-200' },
   other: { label: 'Other', icon: '📍', color: 'bg-cream-50/10 text-cream-100' },
 };
 
