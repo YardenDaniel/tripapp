@@ -45,15 +45,22 @@ export default function PackingTab({ trip }) {
     const name = newItemName.trim();
     if (!name || adding) return;
     setAdding(true);
+    setNewItemName('');
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { error } = await supabase
+      // Insert and immediately append the returned row so the list updates
+      // without waiting for the realtime broadcast (and works even if
+      // realtime isn't enabled for this table on the project).
+      const { data, error } = await supabase
         .from('equipment_items')
-        .insert({ trip_id: trip.id, name, created_by: user?.id });
+        .insert({ trip_id: trip.id, name, created_by: user?.id })
+        .select()
+        .single();
       if (error) throw error;
-      setNewItemName('');
+      setItems((prev) => (prev.some((i) => i.id === data.id) ? prev : [...prev, data]));
     } catch (err) {
       alert('Could not add item: ' + (err.message || 'unknown error'));
+      setNewItemName(name);
     } finally {
       setAdding(false);
     }

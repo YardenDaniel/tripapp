@@ -27,3 +27,7 @@ create policy "Members can update equipment"
 
 create policy "Members can delete equipment"
   on public.equipment_items for delete using (public.is_trip_member(trip_id));
+
+-- Enable realtime so co-travelers see additions/changes live (without this,
+-- changes only show after a manual refresh).
+alter publication supabase_realtime add table public.equipment_items;
