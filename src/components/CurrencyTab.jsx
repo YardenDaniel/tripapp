@@ -54,6 +54,21 @@ function buildQuickAmounts(fromCurrency, rates) {
   });
 }
 
+// open.er-api.com refreshes daily, but we re-fetch every 30 minutes so that
+// if the tab is left open across a refresh boundary the user gets the new rates.
+const AUTO_REFRESH_MS = 30 * 60 * 1000;
+
+function formatRelativeTime(date) {
+  if (!date) return '';
+  const seconds = Math.round((Date.now() - date.getTime()) / 1000);
+  if (seconds < 60) return 'just now';
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hr ago`;
+  return `${Math.round(hours / 24)} days ago`;
+}
+
 export default function CurrencyTab({ trip }) {
   const tripCurrency = useMemo(() => getDefaultCurrency(trip.country), [trip.country]);
   const [from, setFrom] = useState(tripCurrency);
@@ -62,11 +77,19 @@ export default function CurrencyTab({ trip }) {
   const [to, setTo] = useState(() => (tripCurrency === 'USD' ? 'EUR' : 'USD'));
   const [amount, setAmount] = useState('100');
   const [rates, setRates] = useState(null);
+  const [ratesUpdatedAt, setRatesUpdatedAt] = useState(null);
+  const [, setNow] = useState(0); // re-render every 60s so "X min ago" stays fresh
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     loadRates();
+    const refresh = setInterval(loadRates, AUTO_REFRESH_MS);
+    const tick = setInterval(() => setNow((n) => n + 1), 60 * 1000);
+    return () => {
+      clearInterval(refresh);
+      clearInterval(tick);
+    };
   }, []);
 
   async function loadRates() {
@@ -77,6 +100,7 @@ export default function CurrencyTab({ trip }) {
       if (!response.ok) throw new Error('Failed to fetch rates');
       const data = await response.json();
       setRates(data.rates);
+      setRatesUpdatedAt(new Date());
     } catch (err) {
       setError("Couldn't update rates. Check your internet.");
       console.error(err);
@@ -109,7 +133,9 @@ export default function CurrencyTab({ trip }) {
           <div>
             <h2 className="font-display text-xl font-bold">Currency Converter</h2>
             <p className="text-xs text-coral-500/70 mt-1">
-              Live exchange rates
+              {ratesUpdatedAt
+                ? `Updated ${formatRelativeTime(ratesUpdatedAt)}`
+                : 'Live exchange rates'}
             </p>
           </div>
           <button
@@ -117,6 +143,7 @@ export default function CurrencyTab({ trip }) {
             disabled={loading}
             className="btn-ghost p-2"
             aria-label="Refresh"
+            title="Refresh rates"
           >
             <RefreshCw className={cn('w-5 h-5', loading && 'animate-spin')} />
           </button>

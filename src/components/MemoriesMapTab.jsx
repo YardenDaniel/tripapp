@@ -7,7 +7,7 @@ import {
   AlertTriangle, Check, ChevronLeft, ChevronRight, ArrowLeft, Clock, Pencil, MoreVertical, Images,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { formatDate } from '../lib/utils';
+import { formatDate, cn } from '../lib/utils';
 import { getMapCenter, getISOCode, normalizeCountryName } from '../lib/countries';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -311,6 +311,60 @@ function findKeysIlstLocation(view, buffer, parent) {
   return null;
 }
 
+// Reads the iPhone-specific "com.apple.quicktime.creationdate" ISO8601 string
+// from the meta > keys + ilst structure. Often survives even when iOS Safari
+// has transcoded the video and zeroed out mvhd.creationTime.
+function findKeysIlstCreationDate(view, buffer, parent) {
+  const meta = findMP4Box(view, parent.payloadStart, parent.payloadEnd, 'meta');
+  if (!meta) return null;
+
+  for (const skipFlags of [0, 4]) {
+    const start = meta.payloadStart + skipFlags;
+    if (start + 8 > meta.payloadEnd) continue;
+    const keys = findMP4Box(view, start, meta.payloadEnd, 'keys');
+    const ilst = findMP4Box(view, start, meta.payloadEnd, 'ilst');
+    if (!keys || !ilst) continue;
+
+    if (keys.payloadEnd - keys.payloadStart < 8) continue;
+    const keyList = [];
+    let kpos = keys.payloadStart + 8;
+    while (kpos + 8 <= keys.payloadEnd) {
+      const ksize = view.getUint32(kpos);
+      if (ksize < 8 || kpos + ksize > keys.payloadEnd) break;
+      const keyValue = new TextDecoder('utf-8').decode(buffer.slice(kpos + 8, kpos + ksize));
+      keyList.push(keyValue);
+      kpos += ksize;
+    }
+
+    const keyIdx = keyList.findIndex((v) => v.includes('creationdate'));
+    if (keyIdx < 0) continue;
+    const targetIdx = keyIdx + 1;
+
+    let ipos = ilst.payloadStart;
+    while (ipos + 8 <= ilst.payloadEnd) {
+      const isize = view.getUint32(ipos);
+      if (isize < 8 || ipos + isize > ilst.payloadEnd) break;
+      const idx = view.getUint32(ipos + 4);
+      if (idx === targetIdx) {
+        const data = findMP4Box(view, ipos + 8, ipos + isize, 'data');
+        if (data && data.payloadEnd - data.payloadStart >= 8) {
+          const valueStart = data.payloadStart + 8;
+          const valueLen = data.payloadEnd - valueStart;
+          if (valueLen > 0) {
+            const dateStr = new TextDecoder('utf-8').decode(
+              buffer.slice(valueStart, valueStart + valueLen),
+            );
+            const d = new Date(dateStr);
+            if (!Number.isNaN(d.getTime())) return d.toISOString();
+          }
+        }
+      }
+      ipos += isize;
+    }
+  }
+  return null;
+}
+
 // Extracts GPS and creation time from an MP4/MOV file (iPhone, Android, GoPro, etc.).
 // Returns { coords?: {lat, lng}, takenAt?: ISO string } or null.
 async function extractVideoMetadata(file) {
@@ -355,23 +409,46 @@ async function extractVideoMetadata(file) {
       console.warn('[video meta] no GPS data found in this video');
     }
 
-    // Creation time via mvhd. Stored as seconds since 1904-01-01 UTC.
-    const mvhd = findMP4Box(view, moov.payloadStart, moov.payloadEnd, 'mvhd');
-    if (mvhd && mvhd.payloadEnd - mvhd.payloadStart >= 16) {
-      const version = view.getUint8(mvhd.payloadStart);
-      let creationTime;
-      if (version === 1 && mvhd.payloadEnd - mvhd.payloadStart >= 20) {
-        const high = view.getUint32(mvhd.payloadStart + 4);
-        const low = view.getUint32(mvhd.payloadStart + 8);
-        creationTime = high * 4294967296 + low;
-      } else {
-        creationTime = view.getUint32(mvhd.payloadStart + 4);
+    // Creation time: try the Apple-specific creationdate key first (more reliable
+    // for iPhone videos — survives iOS Safari transcoding when mvhd gets zeroed).
+    // Fall back to mvhd.creationTime (Android, GoPro, dashcams, older devices).
+    let appleDate = findKeysIlstCreationDate(view, buffer, moov);
+    let dateSource = appleDate ? 'moov > meta > keys/ilst' : '';
+    if (!appleDate) {
+      const udta = findMP4Box(view, moov.payloadStart, moov.payloadEnd, 'udta');
+      if (udta) {
+        appleDate = findKeysIlstCreationDate(view, buffer, udta);
+        if (appleDate) dateSource = 'moov > udta > meta > keys/ilst';
       }
-      // Convert from 1904-epoch to Unix-epoch (diff = 2,082,844,800 seconds).
-      const unixSeconds = creationTime - 2082844800;
-      if (unixSeconds > 0) {
-        result.takenAt = new Date(unixSeconds * 1000).toISOString();
+    }
+    if (appleDate) {
+      console.log('[video meta] creation time via apple creationdate at', dateSource, appleDate);
+      result.takenAt = appleDate;
+    }
+
+    if (!result.takenAt) {
+      const mvhd = findMP4Box(view, moov.payloadStart, moov.payloadEnd, 'mvhd');
+      if (mvhd && mvhd.payloadEnd - mvhd.payloadStart >= 16) {
+        const version = view.getUint8(mvhd.payloadStart);
+        let creationTime;
+        if (version === 1 && mvhd.payloadEnd - mvhd.payloadStart >= 20) {
+          const high = view.getUint32(mvhd.payloadStart + 4);
+          const low = view.getUint32(mvhd.payloadStart + 8);
+          creationTime = high * 4294967296 + low;
+        } else {
+          creationTime = view.getUint32(mvhd.payloadStart + 4);
+        }
+        // Convert from 1904-epoch to Unix-epoch (diff = 2,082,844,800 seconds).
+        const unixSeconds = creationTime - 2082844800;
+        if (unixSeconds > 0) {
+          result.takenAt = new Date(unixSeconds * 1000).toISOString();
+          console.log('[video meta] creation time via mvhd', result.takenAt);
+        }
       }
+    }
+
+    if (!result.takenAt) {
+      console.warn('[video meta] no creation time found in this video');
     }
 
     return Object.keys(result).length > 0 ? result : null;
@@ -381,7 +458,7 @@ async function extractVideoMetadata(file) {
   }
 }
 
-function VideoThumbnail({ src, className }) {
+function VideoThumbnail({ src, className, compact = false }) {
   // Append a media-fragment so the browser seeks to 0.1s and renders a real frame.
   const previewSrc = src ? `${src}#t=0.1` : src;
   return (
@@ -393,11 +470,24 @@ function VideoThumbnail({ src, className }) {
         playsInline
         preload="metadata"
       />
-      <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
-        <div className="w-8 h-8 rounded-full bg-coral-500/90 flex items-center justify-center shadow-lg">
-          <Play className="w-4 h-4 text-ink-900 ml-0.5" fill="currentColor" />
+      {compact ? (
+        // Small triangle in the corner — used on map markers where the
+        // thumbnail itself is the main content and a big play button would
+        // hide the image.
+        <svg
+          viewBox="0 0 10 10"
+          className="absolute bottom-0.5 right-0.5 w-3 h-3 drop-shadow"
+          aria-hidden="true"
+        >
+          <polygon points="2,1 9,5 2,9" fill="#f97316" stroke="#1a1a1a" strokeWidth="0.6" strokeLinejoin="round" />
+        </svg>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
+          <div className="w-8 h-8 rounded-full bg-coral-500/90 flex items-center justify-center shadow-lg">
+            <Play className="w-4 h-4 text-ink-900 ml-0.5" fill="currentColor" />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -416,7 +506,7 @@ function ClusterMarker({ cluster }) {
         {cover.media_type === 'photo' ? (
           <img src={cover.media_url} alt="" className="w-full h-full object-cover" />
         ) : (
-          <VideoThumbnail src={cover.media_url} className="w-full h-full" />
+          <VideoThumbnail src={cover.media_url} className="w-full h-full" compact />
         )}
       </div>
       {/* Counter badge */}
@@ -436,7 +526,7 @@ function SingleMarker({ memory }) {
         {memory.media_type === 'photo' ? (
           <img src={memory.media_url} alt="" className="w-full h-full object-cover" />
         ) : (
-          <VideoThumbnail src={memory.media_url} className="w-full h-full" />
+          <VideoThumbnail src={memory.media_url} className="w-full h-full" compact />
         )}
       </div>
       <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-coral-500 rotate-45" />
@@ -1177,6 +1267,7 @@ export default function MemoriesMapTab({ trip }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [pendingUpload, setPendingUpload] = useState(null);
+  const [pendingQueue, setPendingQueue] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
   const [zoom, setZoom] = useState(5);
   const [albumOpen, setAlbumOpen] = useState(false);
@@ -1506,14 +1597,26 @@ export default function MemoriesMapTab({ trip }) {
   }, [memories.length]); // intentionally only re-fit when count changes
 
   async function handleFileSelect(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = ''; // allow picking the same files again later
 
+    // Process the first file immediately; queue the rest. After each upload
+    // (or skip) the next file is processed and its modal pops up automatically.
+    const [first, ...rest] = files;
+    setPendingQueue(rest);
+    await processFile(first, rest.length);
+  }
+
+  async function processFile(file, remainingAfter) {
     setUploading(true);
     try {
       const isVideo = file.type.startsWith('video/');
       let coords = null;
       let takenAt = null;
+      // 'exif' / 'video-meta' = confident (came from real capture metadata).
+      // 'file-mtime' / null = not confident (file system date or just "now").
+      let takenAtSource = null;
       let coordsSource = 'default';
 
       if (!isVideo) {
@@ -1524,6 +1627,7 @@ export default function MemoriesMapTab({ trip }) {
         }
         if (exif?.DateTimeOriginal) {
           takenAt = new Date(exif.DateTimeOriginal).toISOString();
+          takenAtSource = 'exif';
         }
       } else {
         const meta = await extractVideoMetadata(file);
@@ -1533,6 +1637,7 @@ export default function MemoriesMapTab({ trip }) {
         }
         if (meta?.takenAt) {
           takenAt = meta.takenAt;
+          takenAtSource = 'video-meta';
         }
       }
 
@@ -1551,7 +1656,10 @@ export default function MemoriesMapTab({ trip }) {
 
       if (!takenAt && file.lastModified) {
         takenAt = new Date(file.lastModified).toISOString();
+        takenAtSource = 'file-mtime';
       }
+
+      const takenAtConfident = takenAtSource === 'exif' || takenAtSource === 'video-meta';
 
       const geo = await reverseGeocode(coords.lat, coords.lng);
       const detectedCountry = geo?.country;
@@ -1565,6 +1673,8 @@ export default function MemoriesMapTab({ trip }) {
           file, preview: reader.result, isVideo, coords, coordsSource,
           detectedCountry, detectedPlace: geo?.placeName, matchesTripCountry,
           takenAt: takenAt || new Date().toISOString(),
+          takenAtConfident,
+          queueRemaining: remainingAfter,
         });
         setUploading(false);
       };
@@ -1573,8 +1683,32 @@ export default function MemoriesMapTab({ trip }) {
       console.error(err);
       alert('Error reading the file');
       setUploading(false);
+      // On error, advance to next file rather than stalling the queue.
+      advanceQueue();
     }
-    e.target.value = '';
+  }
+
+  function advanceQueue() {
+    setPendingQueue((current) => {
+      if (current.length === 0) return current;
+      const [next, ...rest] = current;
+      processFile(next, rest.length);
+      return rest;
+    });
+  }
+
+  function handleSkip() {
+    setPendingUpload(null);
+    advanceQueue();
+  }
+
+  function handleCancelQueue() {
+    const remaining = pendingQueue.length;
+    if (remaining > 0) {
+      if (!confirm(`Discard the remaining ${remaining} file${remaining === 1 ? '' : 's'}?`)) return;
+    }
+    setPendingQueue([]);
+    setPendingUpload(null);
   }
 
   async function uploadMemory(data) {
@@ -1604,6 +1738,9 @@ export default function MemoriesMapTab({ trip }) {
         const withCoords = { ...inserted, coords: parseCoords(inserted.location_coords) };
         setMemories((prev) => [withCoords, ...prev]);
       }
+      // After a successful save, automatically pop the next queued file
+      // straight into the upload modal.
+      advanceQueue();
     } catch (err) {
       console.error(err);
       alert(err.message || 'Upload error');
@@ -1817,6 +1954,7 @@ export default function MemoriesMapTab({ trip }) {
           ref={fileInputRef}
           type="file"
           accept="image/*,video/*"
+          multiple
           onChange={handleFileSelect}
           className="hidden"
         />
@@ -1864,7 +2002,8 @@ export default function MemoriesMapTab({ trip }) {
         <UploadModal
           data={pendingUpload}
           tripCountry={tripCountry}
-          onClose={() => setPendingUpload(null)}
+          onClose={handleCancelQueue}
+          onSkip={pendingUpload.queueRemaining > 0 ? handleSkip : null}
           onSave={uploadMemory}
           onUseCurrentLocation={useCurrentLocation}
           onUseTripCountryCenter={useTripCountryCenter}
@@ -1878,18 +2017,37 @@ export default function MemoriesMapTab({ trip }) {
 }
 
 // ─── UPLOAD MODAL ──────────────────────────────────────────────
-function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation, onUseTripCountryCenter, onPickOnMap, hidden, uploading }) {
+
+// Convert an ISO timestamp to the value format <input type="datetime-local"> wants:
+// "YYYY-MM-DDTHH:mm" in the user's LOCAL time (no timezone suffix).
+function isoToLocalInputValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function localInputValueToIso(value) {
+  if (!value) return new Date().toISOString();
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+
+function UploadModal({ data, tripCountry, onClose, onSkip, onSave, onUseCurrentLocation, onUseTripCountryCenter, onPickOnMap, hidden, uploading }) {
   const [caption, setCaption] = useState('');
   const [locationName, setLocationName] = useState(data.detectedPlace || '');
   const [coords, setCoords] = useState(data.coords);
+  const [takenAtLocal, setTakenAtLocal] = useState(() => isoToLocalInputValue(data.takenAt));
   const [gettingLocation, setGettingLocation] = useState(false);
   const [confirmedMismatch, setConfirmedMismatch] = useState(false);
 
   useEffect(() => {
     setCoords(data.coords);
     setLocationName(data.detectedPlace || '');
+    setTakenAtLocal(isoToLocalInputValue(data.takenAt));
     setConfirmedMismatch(false);
-  }, [data.coords, data.detectedPlace]);
+  }, [data.coords, data.detectedPlace, data.takenAt]);
 
   async function handleUseCurrentLocation() {
     setGettingLocation(true);
@@ -1906,10 +2064,17 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
     >
       <div className="card-warm ornamental-border w-full max-w-md animate-slide-up max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-xl font-bold">
-            New {data.isVideo ? 'Video' : 'Memory'}
-          </h3>
-          <button onClick={onClose} className="btn-ghost p-1.5">
+          <div>
+            <h3 className="font-display text-xl font-bold">
+              New {data.isVideo ? 'Video' : 'Memory'}
+            </h3>
+            {data.queueRemaining > 0 && (
+              <p className="text-xs text-coral-500/80 mt-0.5">
+                {data.queueRemaining} more file{data.queueRemaining === 1 ? '' : 's'} queued after this one
+              </p>
+            )}
+          </div>
+          <button onClick={onClose} className="btn-ghost p-1.5" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -2007,6 +2172,26 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-sage-700 mb-2">
+              Date & time
+              {data.takenAtConfident ? (
+                <span className="ml-1 text-xs text-sage-500 font-normal">(detected from {data.isVideo ? 'video' : 'photo'} — edit if wrong)</span>
+              ) : (
+                <span className="ml-1 text-xs text-coral-600 font-normal">⚠ Couldn't detect — please set when this was taken</span>
+              )}
+            </label>
+            <input
+              type="datetime-local"
+              value={takenAtLocal}
+              onChange={(e) => setTakenAtLocal(e.target.value)}
+              className={cn(
+                'input-field h-12 appearance-none',
+                !data.takenAtConfident && 'border-coral-500/50 focus:border-coral-500',
+              )}
+            />
+          </div>
+
           <details className="text-xs">
             <summary className="cursor-pointer text-sage-600 hover:text-sage-700">
               Advanced: Manual coordinates
@@ -2038,13 +2223,28 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
 
         <div className="flex gap-2 pt-4">
           <button onClick={onClose} className="btn-ghost flex-1">Cancel</button>
+          {onSkip && (
+            <button onClick={onSkip} className="btn-ghost flex-1" disabled={uploading}>
+              Skip
+            </button>
+          )}
           <button
-            onClick={() => onSave({ ...data, caption, locationName, coords })}
+            onClick={() => onSave({
+              ...data,
+              caption,
+              locationName,
+              coords,
+              takenAt: localInputValueToIso(takenAtLocal),
+            })}
             disabled={uploading || showMismatchWarning}
             className="btn-primary flex-1"
             title={showMismatchWarning ? 'Please confirm or change the location first' : ''}
           >
-            {uploading ? 'Uploading...' : 'Save'}
+            {uploading
+              ? 'Uploading...'
+              : data.queueRemaining > 0
+                ? 'Save & next'
+                : 'Save'}
           </button>
         </div>
       </div>
