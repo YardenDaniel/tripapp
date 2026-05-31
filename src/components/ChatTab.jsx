@@ -3,6 +3,7 @@ import { Send, Sparkles, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { cn } from '../lib/utils';
 import { getCountry } from '../lib/countries';
+import { Markdown } from '../lib/markdown.jsx';
 
 export default function ChatTab({ trip }) {
   return <ChatInterface trip={trip} />;
@@ -75,7 +76,13 @@ ${conversationHistory ? `Previous conversation:\n${conversationHistory}\n` : ''}
 
 New question: ${userMsg}
 
-Respond in English, concisely (up to 4 sentences when possible), in a friendly and warm tone. If the user asks about a specific place, restaurant, or attraction, answer in a focused way. When relevant, end with a suggestion: "Want me to add this to your itinerary?"`;
+Reply in English, friendly and warm, with a clear visual structure. Use markdown formatting:
+- ## Headings to group sections (e.g., a section per restaurant or attraction)
+- **Bold** for names and key facts
+- Bullet lists for options, tips, or steps
+- Short paragraphs
+
+Keep it focused — do not pad. Aim for the most useful answer the traveler can act on. When the answer recommends a specific place, restaurant, or activity, end with: "Want me to add this to your itinerary?"`;
 
     try {
       // Calls the Supabase Edge Function 'chat' which holds the Anthropic key
@@ -153,12 +160,7 @@ Respond in English, concisely (up to 4 sentences when possible), in a friendly a
         ) : (
           messages.map((msg) => <MessageBubble key={msg.id} message={msg} />)
         )}
-        {sending && (
-          <div className="flex items-center gap-2 text-coral-500/60 text-sm">
-            <Loader2 className="w-4 h-4 animate-spin" />
-            <span className="italic">Thinking...</span>
-          </div>
-        )}
+        {sending && <ThinkingIndicator />}
       </div>
 
       <form onSubmit={sendMessage} className="flex gap-2 pt-3 border-t border-surface-200">
@@ -189,19 +191,43 @@ function MessageBubble({ message }) {
     <div className={cn('flex animate-fade-in', isUser ? 'justify-end' : 'justify-start')}>
       <div
         className={cn(
-          'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
+          'max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-relaxed',
           isUser
             ? 'bg-gradient-teal text-white rounded-br-md'
             : 'bg-surface-50 text-ink-900 border border-surface-200 rounded-bl-md'
         )}
       >
         {!isUser && (
-          <div className="flex items-center gap-1.5 mb-1 text-coral-500 text-xs">
+          <div className="flex items-center gap-1.5 mb-1.5 text-coral-500 text-xs">
             <Sparkles className="w-3 h-3" />
             <span>Assistant</span>
           </div>
         )}
-        <p className="whitespace-pre-wrap">{message.content}</p>
+        {isUser ? (
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        ) : (
+          <div className="space-y-1">
+            <Markdown text={message.content} />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ThinkingIndicator() {
+  return (
+    <div className="flex justify-start animate-fade-in">
+      <div className="bg-surface-50 border border-surface-200 rounded-2xl rounded-bl-md px-4 py-3">
+        <div className="flex items-center gap-1.5">
+          <Sparkles className="w-3 h-3 text-coral-500" />
+          <span className="text-xs text-coral-500 mr-2">Assistant</span>
+          <span className="flex gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-coral-500/70 animate-thinking-dot" style={{ animationDelay: '0ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-coral-500/70 animate-thinking-dot" style={{ animationDelay: '180ms' }} />
+            <span className="w-1.5 h-1.5 rounded-full bg-coral-500/70 animate-thinking-dot" style={{ animationDelay: '360ms' }} />
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -16,6 +16,19 @@ export default function MembersTab({ trip }) {
 
   useEffect(() => {
     loadMembers();
+
+    // Realtime: when someone joins via invite link or is removed, the list
+    // updates without a manual refresh.
+    const channel = supabase
+      .channel(`trip-${trip.id}-members`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'trip_members', filter: `trip_id=eq.${trip.id}` },
+        () => loadMembers()
+      )
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
   }, [trip.id]);
 
   async function loadMembers() {

@@ -381,7 +381,7 @@ async function extractVideoMetadata(file) {
   }
 }
 
-function VideoThumbnail({ src, className }) {
+function VideoThumbnail({ src, className, compact = false }) {
   // Append a media-fragment so the browser seeks to 0.1s and renders a real frame.
   const previewSrc = src ? `${src}#t=0.1` : src;
   return (
@@ -393,11 +393,24 @@ function VideoThumbnail({ src, className }) {
         playsInline
         preload="metadata"
       />
-      <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
-        <div className="w-8 h-8 rounded-full bg-coral-500/90 flex items-center justify-center shadow-lg">
-          <Play className="w-4 h-4 text-ink-900 ml-0.5" fill="currentColor" />
+      {compact ? (
+        // Small triangle in the corner — used on map markers where the
+        // thumbnail itself is the main content and a big play button would
+        // hide the image.
+        <svg
+          viewBox="0 0 10 10"
+          className="absolute bottom-0.5 right-0.5 w-3 h-3 drop-shadow"
+          aria-hidden="true"
+        >
+          <polygon points="2,1 9,5 2,9" fill="#f97316" stroke="#1a1a1a" strokeWidth="0.6" strokeLinejoin="round" />
+        </svg>
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/10 pointer-events-none">
+          <div className="w-8 h-8 rounded-full bg-coral-500/90 flex items-center justify-center shadow-lg">
+            <Play className="w-4 h-4 text-ink-900 ml-0.5" fill="currentColor" />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -416,7 +429,7 @@ function ClusterMarker({ cluster }) {
         {cover.media_type === 'photo' ? (
           <img src={cover.media_url} alt="" className="w-full h-full object-cover" />
         ) : (
-          <VideoThumbnail src={cover.media_url} className="w-full h-full" />
+          <VideoThumbnail src={cover.media_url} className="w-full h-full" compact />
         )}
       </div>
       {/* Counter badge */}
@@ -436,7 +449,7 @@ function SingleMarker({ memory }) {
         {memory.media_type === 'photo' ? (
           <img src={memory.media_url} alt="" className="w-full h-full object-cover" />
         ) : (
-          <VideoThumbnail src={memory.media_url} className="w-full h-full" />
+          <VideoThumbnail src={memory.media_url} className="w-full h-full" compact />
         )}
       </div>
       <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-coral-500 rotate-45" />
@@ -1177,6 +1190,7 @@ export default function MemoriesMapTab({ trip }) {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [pendingUpload, setPendingUpload] = useState(null);
+  const [pendingQueue, setPendingQueue] = useState([]);
   const [deletingId, setDeletingId] = useState(null);
   const [zoom, setZoom] = useState(5);
   const [albumOpen, setAlbumOpen] = useState(false);
@@ -1506,9 +1520,18 @@ export default function MemoriesMapTab({ trip }) {
   }, [memories.length]); // intentionally only re-fit when count changes
 
   async function handleFileSelect(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    e.target.value = ''; // allow picking the same files again later
 
+    // Process the first file immediately; queue the rest. After each upload
+    // (or skip) the next file is processed and its modal pops up automatically.
+    const [first, ...rest] = files;
+    setPendingQueue(rest);
+    await processFile(first, rest.length);
+  }
+
+  async function processFile(file, remainingAfter) {
     setUploading(true);
     try {
       const isVideo = file.type.startsWith('video/');
@@ -1565,6 +1588,7 @@ export default function MemoriesMapTab({ trip }) {
           file, preview: reader.result, isVideo, coords, coordsSource,
           detectedCountry, detectedPlace: geo?.placeName, matchesTripCountry,
           takenAt: takenAt || new Date().toISOString(),
+          queueRemaining: remainingAfter,
         });
         setUploading(false);
       };
@@ -1573,8 +1597,32 @@ export default function MemoriesMapTab({ trip }) {
       console.error(err);
       alert('Error reading the file');
       setUploading(false);
+      // On error, advance to next file rather than stalling the queue.
+      advanceQueue();
     }
-    e.target.value = '';
+  }
+
+  function advanceQueue() {
+    setPendingQueue((current) => {
+      if (current.length === 0) return current;
+      const [next, ...rest] = current;
+      processFile(next, rest.length);
+      return rest;
+    });
+  }
+
+  function handleSkip() {
+    setPendingUpload(null);
+    advanceQueue();
+  }
+
+  function handleCancelQueue() {
+    const remaining = pendingQueue.length;
+    if (remaining > 0) {
+      if (!confirm(`Discard the remaining ${remaining} file${remaining === 1 ? '' : 's'}?`)) return;
+    }
+    setPendingQueue([]);
+    setPendingUpload(null);
   }
 
   async function uploadMemory(data) {
@@ -1604,6 +1652,9 @@ export default function MemoriesMapTab({ trip }) {
         const withCoords = { ...inserted, coords: parseCoords(inserted.location_coords) };
         setMemories((prev) => [withCoords, ...prev]);
       }
+      // After a successful save, automatically pop the next queued file
+      // straight into the upload modal.
+      advanceQueue();
     } catch (err) {
       console.error(err);
       alert(err.message || 'Upload error');
@@ -1817,6 +1868,7 @@ export default function MemoriesMapTab({ trip }) {
           ref={fileInputRef}
           type="file"
           accept="image/*,video/*"
+          multiple
           onChange={handleFileSelect}
           className="hidden"
         />
@@ -1864,7 +1916,8 @@ export default function MemoriesMapTab({ trip }) {
         <UploadModal
           data={pendingUpload}
           tripCountry={tripCountry}
-          onClose={() => setPendingUpload(null)}
+          onClose={handleCancelQueue}
+          onSkip={pendingUpload.queueRemaining > 0 ? handleSkip : null}
           onSave={uploadMemory}
           onUseCurrentLocation={useCurrentLocation}
           onUseTripCountryCenter={useTripCountryCenter}
@@ -1878,18 +1931,37 @@ export default function MemoriesMapTab({ trip }) {
 }
 
 // ─── UPLOAD MODAL ──────────────────────────────────────────────
-function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation, onUseTripCountryCenter, onPickOnMap, hidden, uploading }) {
+
+// Convert an ISO timestamp to the value format <input type="datetime-local"> wants:
+// "YYYY-MM-DDTHH:mm" in the user's LOCAL time (no timezone suffix).
+function isoToLocalInputValue(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function localInputValueToIso(value) {
+  if (!value) return new Date().toISOString();
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+
+function UploadModal({ data, tripCountry, onClose, onSkip, onSave, onUseCurrentLocation, onUseTripCountryCenter, onPickOnMap, hidden, uploading }) {
   const [caption, setCaption] = useState('');
   const [locationName, setLocationName] = useState(data.detectedPlace || '');
   const [coords, setCoords] = useState(data.coords);
+  const [takenAtLocal, setTakenAtLocal] = useState(() => isoToLocalInputValue(data.takenAt));
   const [gettingLocation, setGettingLocation] = useState(false);
   const [confirmedMismatch, setConfirmedMismatch] = useState(false);
 
   useEffect(() => {
     setCoords(data.coords);
     setLocationName(data.detectedPlace || '');
+    setTakenAtLocal(isoToLocalInputValue(data.takenAt));
     setConfirmedMismatch(false);
-  }, [data.coords, data.detectedPlace]);
+  }, [data.coords, data.detectedPlace, data.takenAt]);
 
   async function handleUseCurrentLocation() {
     setGettingLocation(true);
@@ -1906,10 +1978,17 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
     >
       <div className="card-warm ornamental-border w-full max-w-md animate-slide-up max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-display text-xl font-bold">
-            New {data.isVideo ? 'Video' : 'Memory'}
-          </h3>
-          <button onClick={onClose} className="btn-ghost p-1.5">
+          <div>
+            <h3 className="font-display text-xl font-bold">
+              New {data.isVideo ? 'Video' : 'Memory'}
+            </h3>
+            {data.queueRemaining > 0 && (
+              <p className="text-xs text-coral-500/80 mt-0.5">
+                {data.queueRemaining} more file{data.queueRemaining === 1 ? '' : 's'} queued after this one
+              </p>
+            )}
+          </div>
+          <button onClick={onClose} className="btn-ghost p-1.5" aria-label="Close">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -2007,6 +2086,19 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-sage-700 mb-2">
+              Date & time
+              <span className="ml-1 text-xs text-sage-500 font-normal">(when it was taken — edit if wrong)</span>
+            </label>
+            <input
+              type="datetime-local"
+              value={takenAtLocal}
+              onChange={(e) => setTakenAtLocal(e.target.value)}
+              className="input-field h-12 appearance-none"
+            />
+          </div>
+
           <details className="text-xs">
             <summary className="cursor-pointer text-sage-600 hover:text-sage-700">
               Advanced: Manual coordinates
@@ -2038,13 +2130,28 @@ function UploadModal({ data, tripCountry, onClose, onSave, onUseCurrentLocation,
 
         <div className="flex gap-2 pt-4">
           <button onClick={onClose} className="btn-ghost flex-1">Cancel</button>
+          {onSkip && (
+            <button onClick={onSkip} className="btn-ghost flex-1" disabled={uploading}>
+              Skip
+            </button>
+          )}
           <button
-            onClick={() => onSave({ ...data, caption, locationName, coords })}
+            onClick={() => onSave({
+              ...data,
+              caption,
+              locationName,
+              coords,
+              takenAt: localInputValueToIso(takenAtLocal),
+            })}
             disabled={uploading || showMismatchWarning}
             className="btn-primary flex-1"
             title={showMismatchWarning ? 'Please confirm or change the location first' : ''}
           >
-            {uploading ? 'Uploading...' : 'Save'}
+            {uploading
+              ? 'Uploading...'
+              : data.queueRemaining > 0
+                ? 'Save & next'
+                : 'Save'}
           </button>
         </div>
       </div>
