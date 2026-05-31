@@ -7,7 +7,7 @@ import {
   AlertTriangle, Check, ChevronLeft, ChevronRight, ArrowLeft, Clock, Pencil, MoreVertical, Images,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { formatDate } from '../lib/utils';
+import { formatDate, cn } from '../lib/utils';
 import { getMapCenter, getISOCode, normalizeCountryName } from '../lib/countries';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -311,6 +311,60 @@ function findKeysIlstLocation(view, buffer, parent) {
   return null;
 }
 
+// Reads the iPhone-specific "com.apple.quicktime.creationdate" ISO8601 string
+// from the meta > keys + ilst structure. Often survives even when iOS Safari
+// has transcoded the video and zeroed out mvhd.creationTime.
+function findKeysIlstCreationDate(view, buffer, parent) {
+  const meta = findMP4Box(view, parent.payloadStart, parent.payloadEnd, 'meta');
+  if (!meta) return null;
+
+  for (const skipFlags of [0, 4]) {
+    const start = meta.payloadStart + skipFlags;
+    if (start + 8 > meta.payloadEnd) continue;
+    const keys = findMP4Box(view, start, meta.payloadEnd, 'keys');
+    const ilst = findMP4Box(view, start, meta.payloadEnd, 'ilst');
+    if (!keys || !ilst) continue;
+
+    if (keys.payloadEnd - keys.payloadStart < 8) continue;
+    const keyList = [];
+    let kpos = keys.payloadStart + 8;
+    while (kpos + 8 <= keys.payloadEnd) {
+      const ksize = view.getUint32(kpos);
+      if (ksize < 8 || kpos + ksize > keys.payloadEnd) break;
+      const keyValue = new TextDecoder('utf-8').decode(buffer.slice(kpos + 8, kpos + ksize));
+      keyList.push(keyValue);
+      kpos += ksize;
+    }
+
+    const keyIdx = keyList.findIndex((v) => v.includes('creationdate'));
+    if (keyIdx < 0) continue;
+    const targetIdx = keyIdx + 1;
+
+    let ipos = ilst.payloadStart;
+    while (ipos + 8 <= ilst.payloadEnd) {
+      const isize = view.getUint32(ipos);
+      if (isize < 8 || ipos + isize > ilst.payloadEnd) break;
+      const idx = view.getUint32(ipos + 4);
+      if (idx === targetIdx) {
+        const data = findMP4Box(view, ipos + 8, ipos + isize, 'data');
+        if (data && data.payloadEnd - data.payloadStart >= 8) {
+          const valueStart = data.payloadStart + 8;
+          const valueLen = data.payloadEnd - valueStart;
+          if (valueLen > 0) {
+            const dateStr = new TextDecoder('utf-8').decode(
+              buffer.slice(valueStart, valueStart + valueLen),
+            );
+            const d = new Date(dateStr);
+            if (!Number.isNaN(d.getTime())) return d.toISOString();
+          }
+        }
+      }
+      ipos += isize;
+    }
+  }
+  return null;
+}
+
 // Extracts GPS and creation time from an MP4/MOV file (iPhone, Android, GoPro, etc.).
 // Returns { coords?: {lat, lng}, takenAt?: ISO string } or null.
 async function extractVideoMetadata(file) {
@@ -355,23 +409,46 @@ async function extractVideoMetadata(file) {
       console.warn('[video meta] no GPS data found in this video');
     }
 
-    // Creation time via mvhd. Stored as seconds since 1904-01-01 UTC.
-    const mvhd = findMP4Box(view, moov.payloadStart, moov.payloadEnd, 'mvhd');
-    if (mvhd && mvhd.payloadEnd - mvhd.payloadStart >= 16) {
-      const version = view.getUint8(mvhd.payloadStart);
-      let creationTime;
-      if (version === 1 && mvhd.payloadEnd - mvhd.payloadStart >= 20) {
-        const high = view.getUint32(mvhd.payloadStart + 4);
-        const low = view.getUint32(mvhd.payloadStart + 8);
-        creationTime = high * 4294967296 + low;
-      } else {
-        creationTime = view.getUint32(mvhd.payloadStart + 4);
+    // Creation time: try the Apple-specific creationdate key first (more reliable
+    // for iPhone videos — survives iOS Safari transcoding when mvhd gets zeroed).
+    // Fall back to mvhd.creationTime (Android, GoPro, dashcams, older devices).
+    let appleDate = findKeysIlstCreationDate(view, buffer, moov);
+    let dateSource = appleDate ? 'moov > meta > keys/ilst' : '';
+    if (!appleDate) {
+      const udta = findMP4Box(view, moov.payloadStart, moov.payloadEnd, 'udta');
+      if (udta) {
+        appleDate = findKeysIlstCreationDate(view, buffer, udta);
+        if (appleDate) dateSource = 'moov > udta > meta > keys/ilst';
       }
-      // Convert from 1904-epoch to Unix-epoch (diff = 2,082,844,800 seconds).
-      const unixSeconds = creationTime - 2082844800;
-      if (unixSeconds > 0) {
-        result.takenAt = new Date(unixSeconds * 1000).toISOString();
+    }
+    if (appleDate) {
+      console.log('[video meta] creation time via apple creationdate at', dateSource, appleDate);
+      result.takenAt = appleDate;
+    }
+
+    if (!result.takenAt) {
+      const mvhd = findMP4Box(view, moov.payloadStart, moov.payloadEnd, 'mvhd');
+      if (mvhd && mvhd.payloadEnd - mvhd.payloadStart >= 16) {
+        const version = view.getUint8(mvhd.payloadStart);
+        let creationTime;
+        if (version === 1 && mvhd.payloadEnd - mvhd.payloadStart >= 20) {
+          const high = view.getUint32(mvhd.payloadStart + 4);
+          const low = view.getUint32(mvhd.payloadStart + 8);
+          creationTime = high * 4294967296 + low;
+        } else {
+          creationTime = view.getUint32(mvhd.payloadStart + 4);
+        }
+        // Convert from 1904-epoch to Unix-epoch (diff = 2,082,844,800 seconds).
+        const unixSeconds = creationTime - 2082844800;
+        if (unixSeconds > 0) {
+          result.takenAt = new Date(unixSeconds * 1000).toISOString();
+          console.log('[video meta] creation time via mvhd', result.takenAt);
+        }
       }
+    }
+
+    if (!result.takenAt) {
+      console.warn('[video meta] no creation time found in this video');
     }
 
     return Object.keys(result).length > 0 ? result : null;
@@ -1537,6 +1614,9 @@ export default function MemoriesMapTab({ trip }) {
       const isVideo = file.type.startsWith('video/');
       let coords = null;
       let takenAt = null;
+      // 'exif' / 'video-meta' = confident (came from real capture metadata).
+      // 'file-mtime' / null = not confident (file system date or just "now").
+      let takenAtSource = null;
       let coordsSource = 'default';
 
       if (!isVideo) {
@@ -1547,6 +1627,7 @@ export default function MemoriesMapTab({ trip }) {
         }
         if (exif?.DateTimeOriginal) {
           takenAt = new Date(exif.DateTimeOriginal).toISOString();
+          takenAtSource = 'exif';
         }
       } else {
         const meta = await extractVideoMetadata(file);
@@ -1556,6 +1637,7 @@ export default function MemoriesMapTab({ trip }) {
         }
         if (meta?.takenAt) {
           takenAt = meta.takenAt;
+          takenAtSource = 'video-meta';
         }
       }
 
@@ -1574,7 +1656,10 @@ export default function MemoriesMapTab({ trip }) {
 
       if (!takenAt && file.lastModified) {
         takenAt = new Date(file.lastModified).toISOString();
+        takenAtSource = 'file-mtime';
       }
+
+      const takenAtConfident = takenAtSource === 'exif' || takenAtSource === 'video-meta';
 
       const geo = await reverseGeocode(coords.lat, coords.lng);
       const detectedCountry = geo?.country;
@@ -1588,6 +1673,7 @@ export default function MemoriesMapTab({ trip }) {
           file, preview: reader.result, isVideo, coords, coordsSource,
           detectedCountry, detectedPlace: geo?.placeName, matchesTripCountry,
           takenAt: takenAt || new Date().toISOString(),
+          takenAtConfident,
           queueRemaining: remainingAfter,
         });
         setUploading(false);
@@ -2089,13 +2175,20 @@ function UploadModal({ data, tripCountry, onClose, onSkip, onSave, onUseCurrentL
           <div>
             <label className="block text-sm font-medium text-sage-700 mb-2">
               Date & time
-              <span className="ml-1 text-xs text-sage-500 font-normal">(when it was taken — edit if wrong)</span>
+              {data.takenAtConfident ? (
+                <span className="ml-1 text-xs text-sage-500 font-normal">(detected from {data.isVideo ? 'video' : 'photo'} — edit if wrong)</span>
+              ) : (
+                <span className="ml-1 text-xs text-coral-600 font-normal">⚠ Couldn't detect — please set when this was taken</span>
+              )}
             </label>
             <input
               type="datetime-local"
               value={takenAtLocal}
               onChange={(e) => setTakenAtLocal(e.target.value)}
-              className="input-field h-12 appearance-none"
+              className={cn(
+                'input-field h-12 appearance-none',
+                !data.takenAtConfident && 'border-coral-500/50 focus:border-coral-500',
+              )}
             />
           </div>
 

@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow, Loader2, Sun, RefreshCw, Wind, Droplets } from 'lucide-react';
-import { getMapCenter, getCountry } from '../lib/countries';
+import {
+  Cloud, CloudDrizzle, CloudFog, CloudLightning, CloudRain, CloudSnow,
+  Loader2, Sun, RefreshCw, Wind, Droplets, Navigation, MapPin, Building2,
+} from 'lucide-react';
+import { getMapCenter, getCountry, normalizeCountryName } from '../lib/countries';
 import { cn } from '../lib/utils';
+import LocationSearchInput from './LocationSearchInput';
+
+const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN;
 
 // Open-Meteo: free, no API key. https://open-meteo.com
 // Returns daily forecast (max 16 days). We request enough to cover trip dates.
@@ -52,26 +58,124 @@ function formatDayLabel(dateStr) {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
+// Resolves the browser's current GPS coords. Returns null if unavailable / denied / timed out.
+function getCurrentLocation() {
+  return new Promise((resolve) => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    const timeoutId = setTimeout(() => resolve(null), 10000);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        clearTimeout(timeoutId);
+        resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+      },
+      (err) => {
+        clearTimeout(timeoutId);
+        console.warn('Geolocation error:', err.message);
+        resolve(null);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
+  });
+}
+
+// Reverse geocodes lat/lng → { country, placeName } via Mapbox. Returns null on failure.
+async function reverseGeocode(lat, lng) {
+  if (!MAPBOX_TOKEN) return null;
+  try {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}&types=country,place,locality&language=en&limit=1`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const f = data.features?.[0];
+    if (!f) return null;
+    const countryContext = f.context?.find((c) => c.id?.startsWith('country.'));
+    return {
+      country: countryContext?.text || f.text,
+      placeName: f.place_name,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default function WeatherTab({ trip }) {
-  const center = useMemo(() => getMapCenter(trip.country), [trip.country]);
-  const countryMeta = useMemo(() => getCountry(trip.country), [trip.country]);
+  // Capital of the trip country — used as a sensible fallback when the user
+  // isn't in the trip country (or before they grant geolocation).
+  const tripCenter = useMemo(() => getMapCenter(trip.country), [trip.country]);
+  const tripMeta = useMemo(() => getCountry(trip.country), [trip.country]);
+
+  // activeLocation is what we're currently showing weather for.
+  //   source: 'current' (browser GPS), 'picked' (search), 'capital' (trip fallback)
+  const [activeLocation, setActiveLocation] = useState(null);
+  const [resolving, setResolving] = useState(true);
+  // Local state for the search input. Cleared after the user picks a result.
+  const [searchValue, setSearchValue] = useState('');
 
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  // Try to start at the user's current location; fall back to trip capital
+  // if they're not in the trip country, or geolocation isn't granted.
   useEffect(() => {
-    loadForecast();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trip.country]);
+    let cancelled = false;
+    (async () => {
+      setResolving(true);
 
-  async function loadForecast() {
+      const fallbackToCapital = () => {
+        if (cancelled) return;
+        setActiveLocation({
+          lat: tripCenter.lat,
+          lng: tripCenter.lng,
+          label: tripMeta?.capital || trip.country,
+          source: 'capital',
+        });
+        setResolving(false);
+      };
+
+      const coords = await getCurrentLocation();
+      if (cancelled) return;
+      if (!coords) { fallbackToCapital(); return; }
+
+      const geo = await reverseGeocode(coords.lat, coords.lng);
+      if (cancelled) return;
+      if (!geo) { fallbackToCapital(); return; }
+
+      const matchesTrip = geo.country && (
+        geo.country.toLowerCase() === trip.country.toLowerCase() ||
+        normalizeCountryName(geo.country).toLowerCase() === trip.country.toLowerCase()
+      );
+
+      if (matchesTrip) {
+        const placeShort = geo.placeName ? geo.placeName.split(',')[0].trim() : null;
+        setActiveLocation({
+          lat: coords.lat,
+          lng: coords.lng,
+          label: placeShort || 'Your location',
+          source: 'current',
+        });
+        setResolving(false);
+      } else {
+        fallbackToCapital();
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [trip.country, tripCenter.lat, tripCenter.lng, tripMeta?.capital]);
+
+  // Fetch forecast whenever the active location changes.
+  useEffect(() => {
+    if (!activeLocation) return;
+    loadForecast(activeLocation);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeLocation?.lat, activeLocation?.lng]);
+
+  async function loadForecast(loc) {
     setLoading(true);
     setError('');
     try {
       const params = new URLSearchParams({
-        latitude: String(center.lat),
-        longitude: String(center.lng),
+        latitude: String(loc.lat),
+        longitude: String(loc.lng),
         timezone: 'auto',
         forecast_days: String(FORECAST_DAYS),
         current: 'temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code',
@@ -89,6 +193,42 @@ export default function WeatherTab({ trip }) {
     }
   }
 
+  async function handleUseMyLocation() {
+    const coords = await getCurrentLocation();
+    if (!coords) {
+      alert("Couldn't read your location. Check your browser's location permission.");
+      return;
+    }
+    const geo = await reverseGeocode(coords.lat, coords.lng);
+    const placeShort = geo?.placeName ? geo.placeName.split(',')[0].trim() : null;
+    setActiveLocation({
+      lat: coords.lat,
+      lng: coords.lng,
+      label: placeShort || 'Your location',
+      source: 'current',
+    });
+  }
+
+  function handleUseCapital() {
+    setActiveLocation({
+      lat: tripCenter.lat,
+      lng: tripCenter.lng,
+      label: tripMeta?.capital || trip.country,
+      source: 'capital',
+    });
+  }
+
+  function handleSearchSelect({ name, shortName, coords }) {
+    if (!coords) return;
+    setActiveLocation({
+      lat: coords.lat,
+      lng: coords.lng,
+      label: shortName || (name ? name.split(',')[0].trim() : 'Searched location'),
+      source: 'picked',
+    });
+    setSearchValue('');
+  }
+
   const tripDays = useMemo(() => {
     if (!data?.daily?.time) return [];
     const days = data.daily.time.map((t, i) => ({
@@ -100,8 +240,9 @@ export default function WeatherTab({ trip }) {
       precipProb: data.daily.precipitation_probability_max?.[i],
       wind: data.daily.wind_speed_10m_max?.[i],
     }));
-    // Show: trip dates that fall inside the forecast window. If the trip is
-    // far in the future and has no overlap, show next 7 days as a fallback.
+    // Only filter to trip dates when we're showing the capital — otherwise
+    // (current location or searched city) just show the next week.
+    if (activeLocation?.source !== 'capital') return days.slice(0, 7);
     const tripStart = new Date(trip.start_date);
     const tripEnd = new Date(trip.end_date);
     const inTrip = days.filter((d) => {
@@ -109,27 +250,16 @@ export default function WeatherTab({ trip }) {
       return dt >= tripStart && dt <= tripEnd;
     });
     return inTrip.length > 0 ? inTrip : days.slice(0, 7);
-  }, [data, trip.start_date, trip.end_date]);
+  }, [data, trip.start_date, trip.end_date, activeLocation?.source]);
 
   const tripStartDate = new Date(trip.start_date);
   const isTripFarFuture = tripStartDate.getTime() > Date.now() + FORECAST_DAYS * 86400000;
 
-  if (loading && !data) {
+  if (resolving) {
     return (
-      <div className="flex justify-center py-12">
+      <div className="flex flex-col items-center justify-center py-12 gap-3">
         <Loader2 className="w-6 h-6 animate-spin text-coral-500" />
-      </div>
-    );
-  }
-
-  if (error && !data) {
-    return (
-      <div className="card-warm text-center py-8">
-        <p className="text-sm text-coral-700 mb-3">{error}</p>
-        <button onClick={loadForecast} className="btn-primary inline-flex items-center gap-2">
-          <RefreshCw className="w-4 h-4" />
-          <span>Try again</span>
-        </button>
+        <p className="text-xs text-sage-600">Finding your location…</p>
       </div>
     );
   }
@@ -138,28 +268,77 @@ export default function WeatherTab({ trip }) {
   const currentDescription = current ? describeCode(current.weather_code) : null;
   const CurrentIcon = currentDescription?.icon;
 
+  // Section heading: trip-overlap forecast vs next 7 days.
+  const headingText = activeLocation?.source === 'capital' && tripDays.length > 0 && tripDays[0].date >= trip.start_date
+    ? 'Forecast for your trip'
+    : 'Next 7 days';
+
   return (
     <div className="animate-fade-in space-y-4 pb-6">
+      {/* Search + reset row */}
+      <div className="space-y-2">
+        <LocationSearchInput
+          value={searchValue}
+          onChange={setSearchValue}
+          onSelect={handleSearchSelect}
+          onClear={() => setSearchValue('')}
+          placeholder="Search any city for weather…"
+        />
+        <div className="flex gap-2">
+          {activeLocation?.source !== 'current' && (
+            <button
+              onClick={handleUseMyLocation}
+              className="btn-ghost flex-1 flex items-center justify-center gap-2 text-sm py-2"
+            >
+              <Navigation className="w-4 h-4" />
+              <span>Use my location</span>
+            </button>
+          )}
+          {activeLocation?.source !== 'capital' && (
+            <button
+              onClick={handleUseCapital}
+              className="btn-ghost flex-1 flex items-center justify-center gap-2 text-sm py-2"
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Trip capital</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       {/* Now-card */}
       <div className="card-warm ornamental-border">
         <div className="flex items-start justify-between mb-3">
-          <div>
-            <p className="text-xs text-coral-500/80">Right now in</p>
-            <h2 className="font-display text-xl font-bold">
-              {countryMeta?.flag ? `${countryMeta.flag} ` : ''}
-              {countryMeta?.capital || trip.country}
+          <div className="min-w-0 flex-1">
+            <p className="text-xs text-coral-500/80 flex items-center gap-1">
+              {activeLocation?.source === 'current' && <Navigation className="w-3 h-3" />}
+              {activeLocation?.source === 'capital' && <Building2 className="w-3 h-3" />}
+              {activeLocation?.source === 'picked' && <MapPin className="w-3 h-3" />}
+              <span>
+                {activeLocation?.source === 'current' && 'Right now where you are'}
+                {activeLocation?.source === 'capital' && `Trip capital · ${tripMeta?.name || trip.country}`}
+                {activeLocation?.source === 'picked' && 'Right now in'}
+              </span>
+            </p>
+            <h2 className="font-display text-xl font-bold truncate">
+              {activeLocation?.source === 'capital' && tripMeta?.flag ? `${tripMeta.flag} ` : ''}
+              {activeLocation?.label}
             </h2>
           </div>
           <button
-            onClick={loadForecast}
+            onClick={() => activeLocation && loadForecast(activeLocation)}
             disabled={loading}
-            className="btn-ghost p-2"
+            className="btn-ghost p-2 shrink-0"
             aria-label="Refresh weather"
             title="Refresh"
           >
             <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
           </button>
         </div>
+
+        {error && !current && (
+          <div className="text-sm text-coral-700 py-2">{error}</div>
+        )}
 
         {current && (
           <div className="flex items-center gap-4">
@@ -184,24 +363,26 @@ export default function WeatherTab({ trip }) {
             </div>
           </div>
         )}
+
+        {!current && !error && loading && (
+          <div className="flex justify-center py-6">
+            <Loader2 className="w-6 h-6 animate-spin text-coral-500" />
+          </div>
+        )}
       </div>
 
-      {/* Daily forecast for the trip dates */}
+      {/* Daily forecast */}
       <div>
         <div className="flex items-baseline justify-between mb-2 px-1">
-          <h3 className="font-display text-sm font-semibold text-ink-900">
-            {tripDays.length > 0 && tripDays[0].date >= trip.start_date
-              ? `Forecast for your trip`
-              : 'Next 7 days'}
-          </h3>
-          {isTripFarFuture && (
-            <span className="text-xs text-sage-500">Trip is too far out — showing next week</span>
+          <h3 className="font-display text-sm font-semibold text-ink-900">{headingText}</h3>
+          {isTripFarFuture && activeLocation?.source === 'capital' && (
+            <span className="text-xs text-sage-500">Trip too far out · showing next week</span>
           )}
         </div>
 
         {tripDays.length === 0 ? (
           <div className="card-warm text-center py-6 text-sm text-sage-500">
-            No forecast available for this trip's dates.
+            No forecast available for this location.
           </div>
         ) : (
           <ul className="space-y-2">
@@ -248,7 +429,7 @@ export default function WeatherTab({ trip }) {
       </div>
 
       <p className="text-[10px] text-sage-400 text-center pt-2">
-        Forecast for {countryMeta?.name || trip.country} ({center.lat.toFixed(2)}, {center.lng.toFixed(2)}) · Powered by Open-Meteo
+        Powered by Open-Meteo · {activeLocation?.lat.toFixed(2)}, {activeLocation?.lng.toFixed(2)}
       </p>
     </div>
   );
